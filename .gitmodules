@@ -1,0 +1,11 @@
+[submodule "Lib/tracy"]
+path = Lib/tracy
+url = https://github.com/wolfpld/tracy
+
+[submodule "Lib/tinygltf"]
+path = Lib/tinygltf
+url = https://github.com/syoyo/tinygltf
+
+[submodule "Lib/stb"]
+path = Lib/stb
+url = https://github.com/nothings/stb
