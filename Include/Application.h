@@ -45,6 +45,7 @@ class Application
 
     void update(float delta_time);
     void render() const;
+    void renderPass(std::shared_ptr<component::Camera3D> camera) const;
 
     void restart();
 

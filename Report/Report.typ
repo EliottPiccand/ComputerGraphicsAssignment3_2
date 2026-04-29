@@ -365,6 +365,7 @@ To help with debugging, a few debug options are available :
 - clicking `R` cycle between the different rendering mode. For now, the available rendering modes are:
     - Default
     - Wireframe
+    - Wireframe with hidden lines removal
 - clicking `Enter` toggle a free view camera that can be moved with `W` `A` `S` `D` `Space` `Left Shift` and moving the mouse. (note that here, `W` `A` `S` `D` no longer move the ship).
 - clicking `P` toggle on/off the physics and the particle engines (not the animations tho)
 - clicking `F` when in another view than Top View fire a cannon ball from the player ship

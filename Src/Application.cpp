@@ -987,12 +987,21 @@ void Application::update(float delta_time)
         case RenderingStyle::OpaquePolygon: {
             LOG_INFO("switched to wireframe rendering");
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+            glDisable(GL_POLYGON_OFFSET_FILL);
             Singleton::rendering_style = RenderingStyle::Wireframe;
         }
         break;
         case RenderingStyle::Wireframe: {
+            LOG_INFO("switched to wireframe with hidden lines removal rendering");
+            glEnable(GL_POLYGON_OFFSET_FILL);
+            glPolygonOffset(1.0f, 1.0f);
+            Singleton::rendering_style = RenderingStyle::WireframeWithHiddenLinesRemoval;
+        }
+        break;
+        case RenderingStyle::WireframeWithHiddenLinesRemoval: {
             LOG_INFO("switched to opaque polygon rendering");
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+            glDisable(GL_POLYGON_OFFSET_FILL);
             Singleton::rendering_style = RenderingStyle::OpaquePolygon;
         }
         break;
@@ -1066,9 +1075,29 @@ void Application::render() const
     auto camera = Singleton::active_camera.lock();
     camera->bind();
 
+    if (Singleton::rendering_style == RenderingStyle::WireframeWithHiddenLinesRemoval)
+    {
+        glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        renderPass(camera);
+
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        renderPass(camera);
+    }
+    else
+    {
+        renderPass(camera);
+    }
+}
+
+void Application::renderPass(std::shared_ptr<component::Camera3D> camera) const
+{
+    ProfileScope;
+    ProfileScopeGPU("Application::renderPass");
+
     scene_root_->render();
     ParticleSystem::render();
-
     camera->renderEffect();
 }
 

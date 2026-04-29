@@ -4,4 +4,5 @@ enum class RenderingStyle
 {
     OpaquePolygon,
     Wireframe,
+    WireframeWithHiddenLinesRemoval,
 };
