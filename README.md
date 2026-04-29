@@ -24,12 +24,7 @@ To help with debugging, a few debug options are available :
 - releasing `F` when in another view than Top View fire a cannon ball from the player ship
 - the arrow keys `Up` `Left` `Down` `Right` move the player's cannon's target respectively North, West, South and East.
 - releasing `F3` toggle the display of a lot of debug information such as :
-    - colliders: AABB with red boxes, Convex Polyhedron with green wireframe and Sphere with cyan circles
-    - cannon's predicted trajectories: blue line
-    - ship's targets: represented by a 1x1x1 aabb collider at the end of the blue line
-    - enemy ships' waypoints: represented by a 1x1x1 aabb collider. A green dashed line goes from the ship to this waypoint
-    - enemy ships' targets' targets: same as the enemy ships' waypoint, but starting from the current ship's target.
-
+    - perspective cameras: every perspective camera can be seen as a blue frustrum going from the camera eye to the near plan.
 ## Building the game
 This project use CMake for compiling, and Python for moving assets.
 If you don't have Python installed, you can remove everything inside `CMakeLists.txt` after the line `# --- Assets ---`, but you will have to manually copy the `Assets` folder next to the executable.
