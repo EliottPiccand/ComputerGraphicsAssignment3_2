@@ -5,8 +5,7 @@
 
 #include "Components/Component.h"
 #include "Components/Transform.h"
-
-class GameObject;
+#include "GameObject.h"
 
 namespace component
 {

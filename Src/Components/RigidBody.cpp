@@ -1,7 +1,8 @@
 #include "Components/RigidBody.h"
 
-#include "GameObject.h" // IWYU pragma: keep
 #include "Physics.h"
+#include "Utils/Math.h"
+#include "Utils/Profiling.h"
 
 using namespace component;
 
@@ -47,6 +48,8 @@ void RigidBody::setOrientation(const glm::quat &orientation)
 
 void RigidBody::initialize()
 {
+    ProfileScope;
+
     GET_COMPONENT(Collider, collider_, RigidBody);
 
     reset();
@@ -63,8 +66,10 @@ void RigidBody::reset()
 
 void RigidBody::updatePhysics(float delta_time)
 {
-    glm::vec3 forces_sum{};
-    glm::vec3 torques_sum{};
+    ProfileScope;
+
+    glm::vec3 forces_sum = ZERO;
+    glm::vec3 torques_sum = ZERO;
     for (const auto &force_callback : forces_)
     {
         const auto [force, application_point] =

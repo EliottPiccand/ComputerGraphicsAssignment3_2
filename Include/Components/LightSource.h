@@ -19,7 +19,7 @@ class LightSource : public Component
     LightSource(Color ambient, Color diffuse);
     ~LightSource() override;
 
-    bool render() const override;
+    void render(glm::mat4 &transform) const override;
 
   private:
     static inline std::unordered_set<GLenum> available_lights_ = {

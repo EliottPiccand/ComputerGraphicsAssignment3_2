@@ -19,7 +19,6 @@ class CannonController : public Component
 
     void initialize() override;
     void update(float delta_time) override;
-    bool render() const override;
 
     virtual void updateTarget(float delta_time);
 

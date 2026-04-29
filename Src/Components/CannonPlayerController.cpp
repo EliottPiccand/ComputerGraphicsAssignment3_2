@@ -2,14 +2,15 @@
 
 #include <Lib/OpenGL.h>
 #include <Lib/glfw.h>
+#include <Lib/glm.h>
 
-#include "GameObject.h" // IWYU pragma: keep
 #include "Input.h"
 #include "Singleton.h"
 #include "Utils/Constants.h"
 #include "Utils/Log.h"
 #include "Utils/Math.h"
 #include "Utils/Profiling.h"
+#include "Utils/View.h"
 
 using namespace component;
 
@@ -34,14 +35,14 @@ void CannonPlayerController::updateTarget(float delta_time)
     if (Input::getState(Singleton::view != View::Top ? Input::Action::DebugAimAndFire : Input::Action::AimAndFire) ==
         Input::State::JustPressed)
     {
-        LOG_DEBUG("aiming");
+        LOG_TRACE("aiming");
         aiming_ = true;
     }
 
     if (Input::getState(Input::Action::CancelFire) == Input::State::JustReleased)
     {
         aiming_ = false;
-        LOG_DEBUG("fire canceled");
+        LOG_TRACE("fire canceled");
     }
 
     glm::vec3 target;

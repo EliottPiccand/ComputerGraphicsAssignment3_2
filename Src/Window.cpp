@@ -10,7 +10,76 @@
 
 #include "Events/EventQueue.h"
 #include "Events/WindowResized.h"
+#include "Utils/Log.h"
 #include "Utils/Profiling.h"
+
+namespace
+{
+const char *glDebugSourceName(GLenum source)
+{
+    switch (source)
+    {
+    case GL_DEBUG_SOURCE_API:
+        return "API";
+    case GL_DEBUG_SOURCE_WINDOW_SYSTEM:
+        return "Window System";
+    case GL_DEBUG_SOURCE_SHADER_COMPILER:
+        return "Shader Compiler";
+    case GL_DEBUG_SOURCE_THIRD_PARTY:
+        return "Third Party";
+    case GL_DEBUG_SOURCE_APPLICATION:
+        return "Application";
+    case GL_DEBUG_SOURCE_OTHER:
+        return "Other";
+    default:
+        return "Unknown";
+    }
+}
+
+const char *glDebugTypeName(GLenum type)
+{
+    switch (type)
+    {
+    case GL_DEBUG_TYPE_ERROR:
+        return "Error";
+    case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR:
+        return "Deprecated Behavior";
+    case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:
+        return "Undefined Behavior";
+    case GL_DEBUG_TYPE_PORTABILITY:
+        return "Portability";
+    case GL_DEBUG_TYPE_PERFORMANCE:
+        return "Performance";
+    case GL_DEBUG_TYPE_OTHER:
+        return "Other";
+    case GL_DEBUG_TYPE_MARKER:
+        return "Marker";
+    case GL_DEBUG_TYPE_PUSH_GROUP:
+        return "Push Group";
+    case GL_DEBUG_TYPE_POP_GROUP:
+        return "Pop Group";
+    default:
+        return "Unknown";
+    }
+}
+
+const char *glDebugSeverityName(GLenum severity)
+{
+    switch (severity)
+    {
+    case GL_DEBUG_SEVERITY_HIGH:
+        return "High";
+    case GL_DEBUG_SEVERITY_MEDIUM:
+        return "Medium";
+    case GL_DEBUG_SEVERITY_LOW:
+        return "Low";
+    case GL_DEBUG_SEVERITY_NOTIFICATION:
+        return "Notification";
+    default:
+        return "Unknown";
+    }
+}
+} // namespace
 
 [[noreturn]] static void glfwErrorCallback(int code, const char *description)
 {
@@ -23,12 +92,69 @@ Window::Window() : is_full_screen_(false)
     glfwSetErrorCallback(glfwErrorCallback);
     glfwInit();
 
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+
     handle_ = glfwCreateWindow(static_cast<int>(DEFAULT_WIDTH), static_cast<int>(DEFAULT_HEIGHT), DEFAULT_TITLE,
                                nullptr, nullptr);
     glfwMakeContextCurrent(handle_);
 
     glewInit();
     SetGpuProfilingContext;
+
+#if defined(OE_DEBUG)
+    glEnable(GL_DEBUG_OUTPUT);
+    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+
+    int major = 0, minor = 0;
+    glGetIntegerv(GL_MAJOR_VERSION, &major);
+    glGetIntegerv(GL_MINOR_VERSION, &minor);
+
+    LOG_DEBUG("OpenGL Context: {}.{}", major, minor);
+
+    int profile_mask = 0;
+    glGetIntegerv(GL_CONTEXT_PROFILE_MASK, &profile_mask);
+    if (profile_mask == GL_CONTEXT_CORE_PROFILE_BIT)
+    {
+        LOG_DEBUG("Profile: CORE");
+    }
+    else if (profile_mask == GL_CONTEXT_COMPATIBILITY_PROFILE_BIT)
+    {
+        LOG_WARNING("Profile: COMPATIBILITY");
+    }
+    else
+    {
+        LOG_WARNING("Profile: UNKNOWN");
+    }
+
+    glDebugMessageCallback(
+        [](GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *message,
+           const void *userParam) {
+            (void)id;
+            (void)length;
+            (void)userParam;
+
+            const char *text = message != nullptr ? message : "no description";
+
+            if (type == GL_DEBUG_TYPE_ERROR || type == GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR)
+            {
+                LOG_ERROR("OpenGL {} {} [{} / id {}]: {}", glDebugSourceName(source), glDebugTypeName(type),
+                          glDebugSeverityName(severity), id, text);
+            }
+            else
+            {
+                LOG_WARNING("OpenGL {} {} [{} / id {}]: {}", glDebugSourceName(source), glDebugTypeName(type),
+                            glDebugSeverityName(severity), id, text);
+            }
+
+#if defined(__GNUC__) || defined(__clang__)
+            __builtin_trap();
+#endif
+        },
+        nullptr);
+#endif
 
     glfwSwapInterval(1); // vsync
 

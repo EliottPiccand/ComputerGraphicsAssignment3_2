@@ -6,27 +6,28 @@
 #include <Lib/glm.h>
 
 #include "Components/Camera3D.h"
-#include "GameObject.h" // IWYU pragma: keep
 #include "Input.h"
 #include "Singleton.h"
-#include "Utils/Color.h"
 #include "Utils/Constants.h"
 #include "Utils/Math.h"
+#include "Utils/Profiling.h"
 
 using namespace component;
 
 FreeViewControls::FreeViewControls()
 {
-    Input::bindKey(Input::Action::FreeViewForward, GLFW_KEY_W);
-    Input::bindKey(Input::Action::FreeViewLeft, GLFW_KEY_A);
+    Input::bindKey(Input::Action::FreeViewForward,  GLFW_KEY_W);
+    Input::bindKey(Input::Action::FreeViewLeft,     GLFW_KEY_A);
     Input::bindKey(Input::Action::FreeViewBackward, GLFW_KEY_S);
-    Input::bindKey(Input::Action::FreeViewRight, GLFW_KEY_D);
-    Input::bindKey(Input::Action::FreeViewUp, GLFW_KEY_SPACE);
-    Input::bindKey(Input::Action::FreeViewDown, GLFW_KEY_LEFT_SHIFT);
+    Input::bindKey(Input::Action::FreeViewRight,    GLFW_KEY_D);
+    Input::bindKey(Input::Action::FreeViewUp,       GLFW_KEY_SPACE);
+    Input::bindKey(Input::Action::FreeViewDown,     GLFW_KEY_LEFT_SHIFT);
 }
 
 void FreeViewControls::update(float delta_time)
 {
+    ProfileScope;
+
     constexpr const float SPEED = 6.0f; // m/s
     constexpr const float VERTICAL_SENSITIVITY = 0.3f;
     constexpr const float HORIZONTAL_SENSITIVITY = 0.3f;
@@ -104,51 +105,4 @@ void FreeViewControls::update(float delta_time)
             camera->transform_.lock()->translate(motion);
         }
     }
-}
-
-bool FreeViewControls::render() const
-{
-    constexpr const GLfloat LENGTH = 0.002f;
-
-    if (Singleton::debug && Singleton::view == View::FreeCamera)
-    {
-        PUSH_CLEAR_STATE();
-
-        const auto camera = Singleton::active_camera.lock();
-        camera->bind();
-
-        const auto perspective = std::get<Camera3D::Perspective>(camera->data_);
-        const auto position =
-            camera->getPosition() + camera->forward() * (static_cast<float>(perspective.near) + LENGTH);
-
-        glMatrixMode(GL_MODELVIEW);
-        glTranslatef(_v3(position));
-
-        glLineWidth(2.0f);
-
-        constexpr const auto EAST_LINE_END = EAST * LENGTH;
-        constexpr const auto NORTH_LINE_END = NORTH * LENGTH;
-        constexpr const auto UP_LINE_END = UP * LENGTH;
-
-        glBegin(GL_LINES);
-            glMaterialfv(GL_FRONT, GL_AMBIENT, color::MATERIAL_RED);
-            glMaterialfv(GL_FRONT, GL_DIFFUSE, color::MATERIAL_RED);
-            glVertex3f(0.0f, 0.0f, 0.0f);
-            glVertex3f(_v3(EAST_LINE_END));
-
-            glMaterialfv(GL_FRONT, GL_AMBIENT, color::MATERIAL_GREEN);
-            glMaterialfv(GL_FRONT, GL_DIFFUSE, color::MATERIAL_GREEN);
-            glVertex3f(0.0f, 0.0f, 0.0f);
-            glVertex3f(_v3(NORTH_LINE_END));            
-
-            glMaterialfv(GL_FRONT, GL_AMBIENT, color::MATERIAL_BLUE);
-            glMaterialfv(GL_FRONT, GL_DIFFUSE, color::MATERIAL_BLUE);
-            glVertex3f(0.0f, 0.0f, 0.0f);
-            glVertex3f(_v3(UP_LINE_END));
-        glEnd();
-
-        POP_CLEAR_STATE();
-    }
-
-    return false;
 }

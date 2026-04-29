@@ -8,6 +8,7 @@
 #include "Events/EventQueue.h"
 #include "Singleton.h"
 #include "Utils/Log.h"
+#include "Utils/Profiling.h"
 
 using namespace component;
 
@@ -29,6 +30,8 @@ void Health::heal()
 
 void Health::initialize()
 {
+    ProfileScope;
+
     std::shared_ptr<Collider> collider;
     GET_COMPONENT(Collider, collider, Health);
 

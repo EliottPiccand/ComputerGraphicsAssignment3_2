@@ -2,8 +2,11 @@
 
 #include <filesystem>
 #include <memory>
+#include <string_view>
 
 #include <Lib/OpenGL.h>
+
+#include "Resources/Shader.h"
 
 namespace resource
 {
@@ -11,11 +14,13 @@ namespace resource
 class Texture
 {
   public:
+    static inline std::shared_ptr<Texture> MISSING;
     static inline constexpr const std::string_view DIRECTORY = "Textures";
 
-    enum class Type {
+    enum class Type
+    {
         Albedo,
-        MetallicSmoothness,
+        MetallicRoughness,
         Normal,
         Emissive,
     };
@@ -25,8 +30,7 @@ class Texture
 
     [[nodiscard]] static std::shared_ptr<Texture> loadFromFile(const std::filesystem::path &path);
 
-    void bind(GLenum slot) const;
-    void unbind(GLenum slot) const;
+    void bind(GLenum slot, std::shared_ptr<resource::Shader> shader, const char *uniform_slot) const;
 
   private:
     const GLuint id_;

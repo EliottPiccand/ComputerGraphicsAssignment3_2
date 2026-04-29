@@ -1,30 +1,35 @@
 #pragma once
 
-#include <vector>
+#include <cstdint>
+#include <span>
 
+#include <Lib/OpenGL.h>
 #include <Lib/glm.h>
 
 #include "Utils/Color.h"
-#include "Utils/Time.h"
 
-struct Particle
+struct alignas(16) Particle
 {
-    glm::vec3 position;
-    glm::vec3 velocity;
-    Color color;
-    Duration max_lifetime;
-    Instant lifetime_start;
-    bool subject_to_gravity;
+    alignas(16) glm::vec3 position;
+    float life;
+    alignas(16) glm::vec3 velocity;
+    int32_t is_subject_to_gravity;
+    alignas(16) Color color;
+    alignas(16) glm::vec2 scale;
 };
 
 class ParticleSystem
 {
   public:
-    static void addParticles(const std::vector<Particle> &particles);
+    static void addParticles(std::span<const Particle> particles);
 
+    static void initialize();
     static void update(float delta_time);
     static void render();
 
   private:
-    static inline std::vector<Particle> particles_;
+    static inline GLuint ssbo_input_;
+    static inline GLuint ssbo_output_;
+    static inline GLuint ssbo_count_;
+    static inline uint32_t particle_count_;
 };

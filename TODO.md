@@ -15,8 +15,10 @@
 - ~~victory/defeat menu~~
     - ~~victory state~~
 - ~~collisions~~
-- switch to shaders and remove any trace of OpenGL legacy pipeline
+- ~~switch to shaders and remove any trace of OpenGL legacy pipeline~~
 - add rendering style: Wireframe rendering with hidden line removal
+- find something to make cannon balls visible from top view
+- fix non textured model rendering
 - update Report
 - update README
     - Controls
@@ -34,6 +36,7 @@
 - ~~water splash on cannonball hit water~~
 - ~~sparks on cannon ball stem~~
 - ~~red overlay on getting hit~~
+- ~~instanciated rendering for particle system~~
 - fireworks on win
 - sink animation
 - rotating ship wheel
@@ -42,9 +45,10 @@
 - sun
 - birds
 - pbr
-- instanciated rendering for particle system
 
 ## If time
 - ~~move textures in the assets/texture folder and fix models accordingly~~
 - fix copy_asset.py when ?
 - update every part using Instant or Duration to something not linked to the system clock, to properly be able to pause the game.
+- readd debug view
+- add ResourceLoader collision name detection

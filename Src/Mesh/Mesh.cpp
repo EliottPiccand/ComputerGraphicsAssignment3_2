@@ -1,16 +1,23 @@
-#include "Utils/MeshPrimitives.h"
+#include "Mesh/Mesh.h"
 
 #include <cmath>
 #include <numbers>
 
 #include "Utils/Constants.h"
+#include "Utils/Log.h"
+#include "Utils/Math.h"
+#include "Utils/Profiling.h"
 
-Mesh generateQuadPlane(float side_length, size_t quads_per_side)
+Mesh<VertexWater> generateQuadPlane(float side_length, size_t quads_per_side)
 {
+    ProfileScope;
+
+    LOG_DEBUG("generating mesh: quad plane with side_length={:.3f} quads_per_side={}", side_length, quads_per_side);
+
     const size_t vertex_count = (quads_per_side + 1) * (quads_per_side + 1);
     const size_t degenerated_triangles_count = 2 * (quads_per_side - 1);
 
-    std::vector<Vertex> vertices;
+    std::vector<VertexWater> vertices;
     vertices.reserve(vertex_count);
     std::vector<IndexType> indices;
     indices.reserve(vertex_count + degenerated_triangles_count);
@@ -23,8 +30,6 @@ Mesh generateQuadPlane(float side_length, size_t quads_per_side)
     {
         for (size_t x = 0; x <= quads_per_side; ++x)
         {
-            const float u = static_cast<float>(x) / static_cast<float>(quads_per_side);
-            const float v = static_cast<float>(y) / static_cast<float>(quads_per_side);
             vertices.push_back({
                 .position =
                     {
@@ -32,8 +37,6 @@ Mesh generateQuadPlane(float side_length, size_t quads_per_side)
                         static_cast<float>(y) * quad_size - half_size,
                         0.0f,
                     },
-                .normal = Z,
-                .uv = {u, v},
             });
         }
     }
@@ -61,12 +64,16 @@ Mesh generateQuadPlane(float side_length, size_t quads_per_side)
     return {vertices, indices};
 }
 
-Mesh generateCylinder(float height, float radius, size_t resolution)
+Mesh<VertexPBR> generateCylinder(float height, float radius, size_t resolution)
 {
+    ProfileScope;
+
+    LOG_DEBUG("generating mesh: cylinder with height={:.3f} radius={:.3f} resolution={}", height, radius, resolution);
+
     const auto vertex_count = resolution * 4 + 2;
     const auto triangle_count = resolution * 4;
 
-    std::vector<Vertex> vertices;
+    std::vector<VertexPBR> vertices;
     vertices.reserve(vertex_count);
     std::vector<IndexType> indices;
     indices.reserve(triangle_count * 3);
@@ -159,12 +166,16 @@ Mesh generateCylinder(float height, float radius, size_t resolution)
     return {vertices, indices};
 }
 
-Mesh generateCone(float height, float radius, size_t resolution)
+Mesh<VertexPBR> generateCone(float height, float radius, size_t resolution)
 {
+    ProfileScope;
+
+    LOG_DEBUG("generating mesh: cone with height={:.3f} radius={:.3f} resolution={}", height, radius, resolution);
+
     const auto vertex_count = resolution * 2 + 2;
     const auto triangle_count = resolution * 2;
 
-    std::vector<Vertex> vertices;
+    std::vector<VertexPBR> vertices;
     vertices.reserve(vertex_count);
     std::vector<IndexType> indices;
     indices.reserve(triangle_count * 3);
@@ -237,6 +248,135 @@ Mesh generateCone(float height, float radius, size_t resolution)
         indices.push_back(bottom_center);
         indices.push_back(bottom_current);
         indices.push_back(bottom_next);
+    }
+
+    return {vertices, indices};
+}
+
+Mesh<VertexDebug> generateFrustrum(double near, double fov, double aspect_ratio)
+{
+    ProfileScope;
+
+    LOG_DEBUG("generating mesh: frustrum with near={:.3f} fov={:.3f} aspect_ratio={:.3f}", near, fov, aspect_ratio);
+
+    const auto near_center = MODEL_FORWARD * static_cast<float>(near) * 0.99f;
+    const auto near_height = 2.0f * static_cast<float>(near) * glm::tan(glm::radians(static_cast<float>(fov) * 0.5f));
+    const auto near_width = near_height * static_cast<float>(aspect_ratio);
+
+    const auto half_width = MODEL_RIGHT * (near_width * 0.5f);
+    const auto half_height = MODEL_UP * (near_height * 0.5f);
+
+    const auto near_top_left = near_center - half_width + half_height;
+    const auto near_top_right = near_center + half_width + half_height;
+    const auto near_bottom_left = near_center - half_width - half_height;
+    const auto near_bottom_right = near_center + half_width - half_height;
+
+    const std::vector<VertexDebug> vertices = {
+        {ZERO}, {near_top_left}, {near_top_right}, {near_bottom_left}, {near_bottom_right},
+    };
+
+    const std::vector<IndexType> indices = {
+        0, 1, 0, 2, 0, 3, 0, 4, 1, 2, 2, 4, 4, 3, 3, 1,
+    };
+
+    return {vertices, indices};
+}
+
+Mesh<VertexUI> generateQuad()
+{
+    ProfileScope;
+
+    const std::vector<VertexUI> vertices = {
+        {
+            .position = {-0.5f, 0.5f},
+            .uv = {0.0f, 0.0f},
+        },
+        {
+            .position = {-0.5f, -0.5f},
+            .uv = {0.0f, 1.0f},
+        },
+        {
+            .position = {0.5f, 0.5f},
+            .uv = {1.0f, 0.0f},
+        },
+        {
+            .position = {0.5f, -0.5f},
+            .uv = {1.0f, 1.0f},
+        },
+    };
+
+    const std::vector<IndexType> indices = {0, 1, 2, 2, 1, 3};
+    return std::make_tuple(vertices, indices);
+}
+
+Mesh<VertexPBR> generateFlag(size_t strip_count, float width, float height, float uv_top, float uv_left,
+                             float uv_bottom, float uv_right)
+{
+    ProfileScope;
+
+    std::vector<VertexPBR> vertices;
+    std::vector<IndexType> indices;
+
+    constexpr const size_t VERTICES_PER_COLUMN = 4;
+
+    vertices.reserve((strip_count + 1) * VERTICES_PER_COLUMN);
+    indices.reserve(strip_count * 12);
+
+    for (size_t i = 0; i <= strip_count; ++i)
+    {
+        const float u = static_cast<float>(i) / static_cast<float>(strip_count);
+        const float x = u * width;
+        const float uv_u = uv_left + u * (uv_right - uv_left);
+
+        vertices.push_back(VertexPBR{
+            .position = {x, -0.5f * height, 0.0f},
+            .normal = {0.0f, 0.0f, 1.0f},
+            .uv = {uv_u, uv_bottom},
+        });
+        vertices.push_back(VertexPBR{
+            .position = {x, 0.5f * height, 0.0f},
+            .normal = {0.0f, 0.0f, 1.0f},
+            .uv = {uv_u, uv_top},
+        });
+        vertices.push_back(VertexPBR{
+            .position = {x, -0.5f * height, 0.0f},
+            .normal = {0.0f, 0.0f, -1.0f},
+            .uv = {uv_u, uv_bottom},
+        });
+        vertices.push_back(VertexPBR{
+            .position = {x, 0.5f * height, 0.0f},
+            .normal = {0.0f, 0.0f, -1.0f},
+            .uv = {uv_u, uv_top},
+        });
+
+        if (i < strip_count)
+        {
+            const IndexType front_bottom_left = static_cast<IndexType>(i * VERTICES_PER_COLUMN);
+            const IndexType front_top_left = static_cast<IndexType>(i * VERTICES_PER_COLUMN + 1);
+            const IndexType front_bottom_right = static_cast<IndexType>((i + 1) * VERTICES_PER_COLUMN);
+            const IndexType front_top_right = static_cast<IndexType>((i + 1) * VERTICES_PER_COLUMN + 1);
+
+            const IndexType back_bottom_left = static_cast<IndexType>(i * VERTICES_PER_COLUMN + 2);
+            const IndexType back_top_left = static_cast<IndexType>(i * VERTICES_PER_COLUMN + 3);
+            const IndexType back_bottom_right = static_cast<IndexType>((i + 1) * VERTICES_PER_COLUMN + 2);
+            const IndexType back_top_right = static_cast<IndexType>((i + 1) * VERTICES_PER_COLUMN + 3);
+
+            indices.push_back(front_bottom_left);
+            indices.push_back(front_top_left);
+            indices.push_back(front_top_right);
+
+            indices.push_back(front_bottom_left);
+            indices.push_back(front_top_right);
+            indices.push_back(front_bottom_right);
+
+            indices.push_back(back_bottom_left);
+            indices.push_back(back_top_right);
+            indices.push_back(back_top_left);
+
+            indices.push_back(back_bottom_left);
+            indices.push_back(back_bottom_right);
+            indices.push_back(back_top_right);
+        }
     }
 
     return {vertices, indices};

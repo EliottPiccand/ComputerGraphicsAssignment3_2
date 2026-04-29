@@ -7,16 +7,13 @@
 #include "Components/ShipController.h"
 #include "Components/Transform.h"
 
-
 namespace component
 {
 
 class ShipAIController : public ShipController
 {
   public:
-    ShipAIController(std::weak_ptr<Transform> target_transforù);
-
-    bool render() const override;
+    ShipAIController(std::weak_ptr<Transform> target_transform);
 
   protected:
     void initialize() override;

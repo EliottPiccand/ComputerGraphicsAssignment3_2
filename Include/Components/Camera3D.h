@@ -3,11 +3,14 @@
 #include <cstdint>
 #include <memory>
 #include <variant>
+#include <vector>
 
 #include <Lib/glm.h>
 
 #include "Components/Component.h"
 #include "Components/Transform.h"
+#include "Resources/Model.h"
+#include "Resources/Shader.h"
 #include "Resources/Texture.h"
 #include "Utils/Time.h"
 
@@ -21,16 +24,16 @@ class Camera3D : public Component
   public:
     struct Perspective
     {
-        double fov;
-        double near;
-        double far;
+        const double fov;
+        const double near;
+        const double far;
     };
 
     struct Orthographic
     {
-        double scale;
-        double near;
-        double far;
+        const double scale;
+        const double near;
+        const double far;
     };
     using Data = std::variant<Perspective, Orthographic>;
 
@@ -39,8 +42,8 @@ class Camera3D : public Component
     /// forward: local coordinates
     Camera3D(Orthographic orthographic, const glm::vec3 &forward, bool display_effects = true);
 
+    static void initialize(std::vector<std::weak_ptr<resource::Shader>> shaders);
     void initialize() override;
-    bool render() const override;
 
     static void shake(Duration duration);
     static void displayEffect(std::shared_ptr<resource::Texture> texture, Duration duration);
@@ -54,7 +57,7 @@ class Camera3D : public Component
 
     /// world coordinates
     [[nodiscard]] glm::vec3 forward() const;
-    
+
     /// world coordinates
     [[nodiscard]] glm::vec3 getPosition() const;
 
@@ -62,13 +65,14 @@ class Camera3D : public Component
     void lookToward(const glm::vec3 &forward);
 
   private:
-    static inline bool static_initialized_ = false;
+    static inline std::vector<std::weak_ptr<resource::Shader>> shaders_;
 
     static inline float viewport_width;
     static inline float viewport_height;
     static inline double aspect_ratio_;
 
-    static inline std::shared_ptr<resource::Texture> effect_;
+    static inline resource::Model::TextureOverride effect_;
+    static inline std::weak_ptr<resource::Model> effect_model_;
     static inline Duration effect_duration_;
     static inline Instant effect_start_time_;
     bool display_effects_;
@@ -85,10 +89,10 @@ class Camera3D : public Component
     std::weak_ptr<component::Transform> transform_;
     friend FreeViewControls;
 
+    std::weak_ptr<resource::Model> debug_frustrum_;
+
     /// forward: local coordinates
     Camera3D(Data data, const glm::vec3 &forward, bool display_effects);
-
-    
 };
 
 } // namespace component

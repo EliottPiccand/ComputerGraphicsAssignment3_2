@@ -2,8 +2,8 @@
 
 #include <cassert>
 
-#include "Singleton.h"
-#include "Utils/Constants.h"
+#include "Resources/ResourceLoader.h"
+#include "Resources/Shader.h"
 #include "Utils/Profiling.h"
 
 using namespace component;
@@ -13,40 +13,16 @@ ModelInstance::ModelInstance(std::shared_ptr<resource::Model> model, resource::M
 {
 }
 
-bool ModelInstance::render() const
+void ModelInstance::render(glm::mat4 &transform) const
 {
     ProfileScope;
     ProfileScopeGPU("ModelInstance::render");
 
-    model_->draw(texture_override_);
+    static std::weak_ptr weak_shader = ResourceLoader::getAsset<resource::Shader>("PBR");
 
-    if (Singleton::debug)
-    {
-        constexpr const float LENGTH = 1.0f;
+    auto shader = weak_shader.lock();
 
-        constexpr const auto X_LINE_END = X * LENGTH;
-        constexpr const auto Y_LINE_END = Y * LENGTH;
-        constexpr const auto Z_LINE_END = Z * LENGTH;
-        
-        glLineWidth(2.0f);
-        
-        glBegin(GL_LINES);
-            glMaterialfv(GL_FRONT, GL_AMBIENT, color::MATERIAL_RED);
-            glMaterialfv(GL_FRONT, GL_DIFFUSE, color::MATERIAL_RED);
-            glVertex3f(0.0f, 0.0f, 0.0f);
-            glVertex3f(_v3(X_LINE_END));
-
-            glMaterialfv(GL_FRONT, GL_AMBIENT, color::MATERIAL_GREEN);
-            glMaterialfv(GL_FRONT, GL_DIFFUSE, color::MATERIAL_GREEN);
-            glVertex3f(0.0f, 0.0f, 0.0f);
-            glVertex3f(_v3(Y_LINE_END));            
-
-            glMaterialfv(GL_FRONT, GL_AMBIENT, color::MATERIAL_BLUE);
-            glMaterialfv(GL_FRONT, GL_DIFFUSE, color::MATERIAL_BLUE);
-            glVertex3f(0.0f, 0.0f, 0.0f);
-            glVertex3f(_v3(Z_LINE_END));
-        glEnd();
-    }
-
-    return false;
+    shader->bind();
+    shader->setUniform("u_Model", transform);
+    model_->draw(shader, texture_override_);
 }

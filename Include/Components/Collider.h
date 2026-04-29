@@ -48,20 +48,19 @@ class Collider : public Component
     [[nodiscard]] const glm::vec3 &getCollisionResolutionMask() const;
 
     void disable();
-    bool isDisabled();
+    [[nodiscard]] bool isDisabled();
 
-    bool collideWith(const Collider &other) const;
-    bool collideWithAABB(const Collider &other) const;
+    [[nodiscard]] bool collideWith(const Collider &other) const;
+    [[nodiscard]] bool collideWithAABB(const Collider &other) const;
 
     /// return whether the object should be detached
     using CollisionCallback = std::function<bool(GameObjectId)>;
     void addCollisionCallback(CollisionCallback callback);
     /// return whether the object should be detached
-    bool callCollisionCallbacks(GameObjectId game_object_id) const;
+    [[nodiscard]] bool callCollisionCallbacks(GameObjectId game_object_id) const;
 
     void initialize() override;
     void update(float delta_time) override;
-    bool render() const override;
 
   private:
     friend Physics;

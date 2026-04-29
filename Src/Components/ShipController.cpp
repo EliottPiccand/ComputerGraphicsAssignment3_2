@@ -5,11 +5,11 @@
 #include <optional>
 #include <vector>
 
-#include "GameObject.h" // IWYU pragma: keep
 #include "ParticleSystem.h"
 #include "Utils/Color.h"
 #include "Utils/Constants.h"
 #include "Utils/Math.h"
+#include "Utils/Profiling.h"
 #include "Utils/Random.h"
 #include "Utils/Time.h"
 
@@ -22,12 +22,16 @@ ShipController::ShipController()
 
 void ShipController::initialize()
 {
+    ProfileScope;
+
     GET_COMPONENT(Transform, transform_, ShipController);
     GET_COMPONENT(RigidBody, rigid_body_, ShipController);
 }
 
 void ShipController::update(float delta_time)
 {
+    ProfileScope;
+
     (void)delta_time;
 
     constexpr const glm::vec3 SHIP_FRONT = MODEL_FORWARD * 10.0f;
@@ -72,11 +76,11 @@ void ShipController::update(float delta_time)
         rigid_body->setVelocity(UP * glm::dot(current_velocity, UP) + forward * SHIP_SPEED);
         particle_offset = SHIP_BACK;
         break;
-        case SpeedState::Stopped:
+    case SpeedState::Stopped:
         rigid_body->setVelocity(UP * glm::dot(current_velocity, UP));
         particle_offset = std::nullopt;
         break;
-        case SpeedState::Backward:
+    case SpeedState::Backward:
         rigid_body->setVelocity(UP * glm::dot(current_velocity, UP) - forward * SHIP_SPEED);
         particle_offset = SHIP_FRONT;
         break;
@@ -86,7 +90,6 @@ void ShipController::update(float delta_time)
     {
         const auto rotated_offset = transform->getRotation() * particle_offset.value();
         const auto offset = rotated_offset + rigid_body->getPosition();
-        const auto instant_now = now();
 
         std::vector<Particle> particles(FOAM_PARTICLE_COUNT);
         for (auto &particle : particles)
@@ -94,9 +97,9 @@ void ShipController::update(float delta_time)
             particle.color = FOAM_PARTICLE_COLOR;
             particle.position = offset + Random::direction() * Random::random(0.0f, FOAM_PARTICLE_SPREAD);
             particle.velocity = ZERO;
-            particle.subject_to_gravity = true;
-            particle.lifetime_start = instant_now;
-            particle.max_lifetime = std::chrono::milliseconds(Random::randint(500, 2500));
+            particle.is_subject_to_gravity = true;
+            particle.life = toSeconds(std::chrono::milliseconds(Random::randint(500, 2500)));
+            particle.scale = {0.3f, 0.3f};
         }
 
         ParticleSystem::addParticles(particles);

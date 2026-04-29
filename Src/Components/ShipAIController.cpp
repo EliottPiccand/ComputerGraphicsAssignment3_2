@@ -4,10 +4,9 @@
 
 #include <Lib/OpenGL.h>
 
-#include "Singleton.h"
-#include "Utils/Color.h"
 #include "Utils/Constants.h"
 #include "Utils/Math.h"
+#include "Utils/Profiling.h"
 #include "Utils/Random.h"
 
 using namespace component;
@@ -20,12 +19,16 @@ ShipAIController::ShipAIController(std::weak_ptr<Transform> target_transform)
 
 void ShipAIController::initialize()
 {
+    ProfileScope;
+
     ShipController::initialize();
     pickTarget();
 }
 
 void ShipAIController::pickTarget()
 {
+    ProfileScope;
+
     constexpr const float MARGIN = 20.0f;
     constexpr const float MIN_DISTANCE = 50.0f;
 
@@ -90,35 +93,4 @@ void ShipAIController::updateStates()
     {
         turn_state_ = heading_error > 0.0f ? TurnState::Left : TurnState::Right;
     }
-}
-
-bool ShipAIController::render() const
-{
-    if (Singleton::debug)
-    {
-        PUSH_CLEAR_STATE();
-        Singleton::active_camera.lock()->bind();
-
-        const auto position = glm::vec3(transform_.lock()->resolve()[3]);
-        const auto target_3d = target_.x * EAST + target_.y * NORTH;
-
-        glMaterialfv(GL_FRONT, GL_AMBIENT, color::MATERIAL_GREEN);
-        glMaterialfv(GL_FRONT, GL_DIFFUSE, color::MATERIAL_GREEN);
-
-        glLineWidth(5.0f);
-
-        glEnable(GL_LINE_STIPPLE);
-        glLineStipple(1, 0x00FF);
-
-        glBegin(GL_LINES);
-            glVertex3f(_v3(position));
-            glVertex3f(_v3(target_3d));
-        glEnd();
-
-        glDisable(GL_LINE_STIPPLE);
-        
-        POP_CLEAR_STATE();
-    }
-    
-    return false;
 }

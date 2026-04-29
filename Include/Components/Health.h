@@ -21,7 +21,7 @@ class Health : public Component
     void damage(float hit_points);
     void heal(float hit_points);
     void heal();
-    
+
     float getRemainingHealthRatio() const;
 
   private:

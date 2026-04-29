@@ -1,7 +1,5 @@
 #include "Components/Component.h"
 
-#include "GameObject.h"
-
 using namespace component;
 
 void Component::initialize()
@@ -13,9 +11,9 @@ void Component::update(float delta_time)
     (void)delta_time;
 }
 
-bool Component::render() const
+void Component::render(glm::mat4 &transform) const
 {
-    return false;
+    (void)transform;
 }
 
 void Component::setOwner(std::shared_ptr<GameObject> game_object)

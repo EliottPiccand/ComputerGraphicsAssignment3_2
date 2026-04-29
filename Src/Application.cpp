@@ -1,5 +1,6 @@
 #include "Application.h"
 
+#include <array>
 #include <chrono>
 #include <numbers>
 #include <string_view>
@@ -13,7 +14,6 @@
 #include "Components/CannonPlayerController.h"
 #include "Components/Collider.h"
 #include "Components/Flag.h"
-#include "Components/Health.h"
 #include "Components/HealthBar.h"
 #include "Components/LightSource.h"
 #include "Components/ModelInstance.h"
@@ -21,7 +21,6 @@
 #include "Components/ShipAIController.h"
 #include "Components/ShipPlayerController.h"
 #include "Components/Text.h"
-#include "Components/Transform.h"
 #include "Components/Water.h"
 #include "Events/DamageTaken.h"
 #include "Events/DetachGameObject.h"
@@ -35,16 +34,15 @@
 #include "Physics.h"
 #include "Resources/Model.h"
 #include "Resources/ResourceLoader.h"
+#include "Resources/Shader.h"
 #include "Resources/Texture.h"
 #include "Singleton.h"
 #include "Utils/Color.h"
 #include "Utils/Constants.h"
 #include "Utils/Log.h"
 #include "Utils/Math.h"
-#include "Utils/MeshPrimitives.h"
 #include "Utils/Profiling.h"
 #include "Utils/Random.h"
-#include "Utils/RenderingStyle.h"
 #include "Utils/Time.h"
 
 // #define DEBUG_SCENE
@@ -250,7 +248,6 @@ const component::Animation::Callback CANNON_BALL_SPARK_ANIMATION = [](float delt
     const auto rigid_body = game_object->getComponent<component::RigidBody>().value();
     const auto backward = -getForwardVector(transform->getRotation());
     const auto position = glm::vec3(transform->resolve()[3]) + backward * 0.3f + Random::direction() * 0.05f;
-    const auto instant_now = now();
 
     std::vector<Particle> particles(CANNON_BALL_SPARK_PARTICLE_COUNT);
     for (auto &particle : particles)
@@ -259,9 +256,9 @@ const component::Animation::Callback CANNON_BALL_SPARK_ANIMATION = [](float delt
         particle.velocity = Random::direction(backward, CANNON_BALL_SPARK_PARTICLE_SPREAD) + rigid_body->getVelocity();
         particle.color = glm::mix(CANNON_BALL_SPARK_PARTICLE_COLOR_1, CANNON_BALL_SPARK_PARTICLE_COLOR_2,
                                   Random::random(0.0f, 1.0f));
-        particle.lifetime_start = instant_now;
-        particle.max_lifetime = CANNON_BALL_SPARK_PARTICLE_MAX_LIFETIME;
-        particle.subject_to_gravity = true;
+        particle.life = toSeconds(CANNON_BALL_SPARK_PARTICLE_MAX_LIFETIME);
+        particle.is_subject_to_gravity = true;
+        particle.scale = {0.1f, 0.1f};
     }
 
     ParticleSystem::addParticles(particles);
@@ -391,8 +388,24 @@ Application::Application() : should_close_(false), free_view_override_(false)
     Input::bindKey(Input::Action::RestartGame, GLFW_KEY_G);
     Input::bindKey(Input::Action::QuitGame, GLFW_KEY_ESCAPE);
 
-    // Load resources
+    // Load shaders
+    LOG_INFO("compiling shaders...");
+    component::Camera3D::initialize({
+        ResourceLoader::getAsset<resource::Shader>("PBR"),
+        ResourceLoader::getAsset<resource::Shader>("PBR#FLAP"),
+        ResourceLoader::getAsset<resource::Shader>("WorldColor"),
+        ResourceLoader::getAsset<resource::Shader>("WorldTexture"),
+        ResourceLoader::getAsset<resource::Shader>("Water"),
+        ResourceLoader::getAsset<resource::Shader>("Particle"),
+    });
+    ResourceLoader::getAsset<resource::Shader>("UI");
+
+    ParticleSystem::initialize();
+
+    // load assets
     LOG_INFO("loading assets...");
+    resource::Texture::MISSING = ResourceLoader::getAsset<resource::Texture>("Missing.png");
+
     const resource::Model::TextureOverride PLAYER_SHIP_TEXTURE_OVERRIDE = {
         {
             0,
@@ -413,8 +426,6 @@ Application::Application() : should_close_(false), free_view_override_(false)
     ResourceLoader::load<resource::Model>(std::string(RADAR_CONE_MODEL),
                                           generateCone(RADAR_CONE_HEIGHT, RADAR_CONE_RAIDUS, RADAR_CONE_RESOLUTION),
                                           RADAR_CONE_COLOR);
-
-    component::Flag::createMesh();
 
     ResourceLoader::getAsset<resource::Texture>(HIT_VIGNETTE);
 
@@ -638,7 +649,7 @@ Application::Application() : should_close_(false), free_view_override_(false)
 
 #pragma endregion scene
 
-    LOG_INFO("assets loaded");
+    LOG_INFO("initializing");
 
     scene_root_->initialize();
     restart();
@@ -653,8 +664,6 @@ Application::Application() : should_close_(false), free_view_override_(false)
             LOG_DEBUG("fire aborted: no initial velocity");
             return;
         }
-
-        LOG_DEBUG("fire {} {} {}", _v3(event.initial_velocity));
 
         auto cannon_ball = scene_root_->addChild();
         std::weak_ptr<GameObject> weak_cannon_ball = cannon_ball;
@@ -689,8 +698,6 @@ Application::Application() : should_close_(false), free_view_override_(false)
                 const auto cannon_ball_transform = cannon_ball_non_weak->getComponent<component::Transform>().value();
                 const auto cannon_ball_position = glm::vec3(cannon_ball_transform->resolve()[3]);
 
-                const auto instant_now = now();
-
                 if (id == water_id)
                 {
                     std::vector<Particle> particles(PLOOF_PARTICLE_COUNT);
@@ -705,11 +712,11 @@ Application::Application() : should_close_(false), free_view_override_(false)
                         particle.velocity = Random::random(PLOOF_PARTICLE_VELOCITY / 5.0f, PLOOF_PARTICLE_VELOCITY) *
                                             Random::direction(glm::normalize(offset + UP * PLOOF_PARTICLE_VERTICALITY),
                                                               PLOOF_PARTICLE_SPREAD);
-                        particle.max_lifetime = PLOOF_PARTICLE_MAX_LIFETIME;
-                        particle.lifetime_start = instant_now;
+                        particle.life = toSeconds(PLOOF_PARTICLE_MAX_LIFETIME);
                         particle.color = glm::mix(PLOOF_PARTICLE_INNER_COLOR, PLOOF_PARTICLE_OUTTER_COLOR,
                                                   std::sqrt(radius / PLOOF_PARTICLE_SPAWN_RADIUS));
-                        particle.subject_to_gravity = true;
+                        particle.is_subject_to_gravity = true;
+                        particle.scale = {1.0f, 1.0f};
                     }
                     ParticleSystem::addParticles(particles);
                 }
@@ -737,10 +744,10 @@ Application::Application() : should_close_(false), free_view_override_(false)
 
                         particle.position = cannon_ball_position;
                         particle.velocity = t * EXPLOSION_PARTICLE_MAX_VELOCITY * Random::direction();
-                        particle.max_lifetime = EXPLOSION_PARTICLE_MAX_LIFETIME;
-                        particle.lifetime_start = instant_now;
+                        particle.life = toSeconds(EXPLOSION_PARTICLE_MAX_LIFETIME);
                         particle.color = glm::mix(EXPLOSION_PARTICLE_INNER_COLOR, EXPLOSION_PARTICLE_OUTTER_COLOR, t);
-                        particle.subject_to_gravity = false;
+                        particle.is_subject_to_gravity = false;
+                        particle.scale = {0.8f, 0.8f};
                     }
                     ParticleSystem::addParticles(particles);
                 }
@@ -876,10 +883,14 @@ Application::Application() : should_close_(false), free_view_override_(false)
                                            HIT_VIGNETTE_DURATION);
         component::Camera3D::shake(HIT_VIGNETTE_DURATION);
     });
+
+    LOG_INFO("ready");
 }
 
 void Application::initializeOpenGL()
 {
+    ProfileScope;
+
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
     // Transparency
@@ -894,12 +905,6 @@ void Application::initializeOpenGL()
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
-
-    // Light
-    glEnable(GL_LIGHTING);
-    glEnable(GL_NORMALIZE);
-
-    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, reinterpret_cast<const GLfloat *>(&component::LightSource::AMBIENT_COLOR));
 }
 
 void Application::run()
@@ -1041,7 +1046,6 @@ void Application::update(float delta_time)
 
     component::Camera3D::updateEffect(delta_time);
     scene_root_->update(delta_time);
-    component::Flag::updateFlapping(delta_time);
 
     if (!Singleton::physics_paused)
     {
@@ -1053,9 +1057,10 @@ void Application::update(float delta_time)
 void Application::render() const
 {
     ProfileScope;
+    ProfileScopeGPU("Application::render");
 
     constexpr const auto SKY_COLOR = rgb(193, 234, 255);
-    glClearColor(_v4(SKY_COLOR));
+    glClearColor(SKY_COLOR.r, SKY_COLOR.g, SKY_COLOR.b, SKY_COLOR.a);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     auto camera = Singleton::active_camera.lock();
@@ -1069,6 +1074,8 @@ void Application::render() const
 
 void Application::restart()
 {
+    ProfileScope;
+
     // hide messages
     victory_message_.lock()->visible = false;
     defeat_message_.lock()->visible = false;

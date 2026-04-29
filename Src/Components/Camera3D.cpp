@@ -6,9 +6,8 @@
 
 #include "Events/EventQueue.h"
 #include "Events/WindowResized.h"
-#include "GameObject.h" // IWYU pragma: keep
-#include "Singleton.h"
-#include "Utils/Color.h"
+#include "Mesh/Mesh.h"
+#include "Resources/ResourceLoader.h"
 #include "Utils/Constants.h"
 #include "Utils/Math.h"
 #include "Utils/Profiling.h"
@@ -19,12 +18,6 @@ using namespace component;
 Camera3D::Camera3D(Data data, const glm::vec3 &forward, bool display_effects)
     : display_effects_(display_effects), data_(data), forward_(forward)
 {
-    if (!static_initialized_)
-    {
-        EventQueue::registerCallback<event::WindowResized>(
-            [](const event::WindowResized &event) { onViewportResize(event.width, event.height); });
-        static_initialized_ = true;
-    }
 }
 
 Camera3D::Camera3D(Perspective perspective, const glm::vec3 &forward, bool display_effects)
@@ -37,81 +30,32 @@ Camera3D::Camera3D(Orthographic orthographic, const glm::vec3 &forward, bool dis
 {
 }
 
-void Camera3D::initialize()
+void Camera3D::initialize(std::vector<std::weak_ptr<resource::Shader>> shaders)
 {
-    GET_COMPONENT(Transform, transform_, Camera3D);
+    ProfileScope;
+
+    EventQueue::registerCallback<event::WindowResized>(
+        [](const event::WindowResized &event) { onViewportResize(event.width, event.height); });
+
+    shaders_ = shaders;
+    effect_model_ =
+        ResourceLoader::getOrFactoryLoad<resource::Model>("Effect", [] { return std::make_tuple(generateQuad()); });
 }
 
-bool Camera3D::render() const
+void Camera3D::initialize()
 {
-    if (Singleton::debug)
+    ProfileScope;
+
+    GET_COMPONENT(Transform, transform_, Camera3D);
+
+    if (std::holds_alternative<Perspective>(data_))
     {
-        constexpr const GLfloat MATERIAL_BLUE[] = {_v4(color::BLUE)};
-        glMaterialfv(GL_FRONT, GL_AMBIENT, MATERIAL_BLUE);
-        glMaterialfv(GL_FRONT, GL_DIFFUSE, MATERIAL_BLUE);
-
-        if (std::holds_alternative<Perspective>(data_))
-        {
-            const auto &perspective = std::get<Perspective>(data_);
-
-            const auto forward = glm::normalize(forward_);
-            const auto right = glm::normalize(glm::cross(forward, UP));
-            const auto up = glm::normalize(glm::cross(right, forward));
-
-            const auto near_center = forward * static_cast<float>(perspective.near);
-            const auto near_height = 2.0f * static_cast<float>(perspective.near) *
-                                     glm::tan(glm::radians(static_cast<float>(perspective.fov) * 0.5f));
-            const auto near_width = near_height * viewport_width / viewport_height;
-
-            const auto half_width = right * (near_width * 0.5f);
-            const auto half_height = up * (near_height * 0.5f);
-
-            const auto near_top_left = near_center - half_width + half_height;
-            const auto near_top_right = near_center + half_width + half_height;
-            const auto near_bottom_left = near_center - half_width - half_height;
-            const auto near_bottom_right = near_center + half_width - half_height;
-
-            glLineWidth(2.0f);
-
-            glBegin(GL_LINES);
-            glVertex3f(0.0f, 0.0f, 0.0f);
-            glVertex3f(_v3(near_top_left));
-
-            glVertex3f(0.0f, 0.0f, 0.0f);
-            glVertex3f(_v3(near_top_right));
-
-            glVertex3f(0.0f, 0.0f, 0.0f);
-            glVertex3f(_v3(near_bottom_left));
-
-            glVertex3f(0.0f, 0.0f, 0.0f);
-            glVertex3f(_v3(near_bottom_right));
-
-            glVertex3f(_v3(near_top_left));
-            glVertex3f(_v3(near_top_right));
-
-            glVertex3f(_v3(near_top_right));
-            glVertex3f(_v3(near_bottom_right));
-
-            glVertex3f(_v3(near_bottom_right));
-            glVertex3f(_v3(near_bottom_left));
-
-            glVertex3f(_v3(near_bottom_left));
-            glVertex3f(_v3(near_top_left));
-            glEnd();
-
-            glPointSize(8.0f);
-
-            constexpr const GLfloat MATERIAL_RED[] = {_v4(color::RED)};
-            glMaterialfv(GL_FRONT, GL_AMBIENT, MATERIAL_RED);
-            glMaterialfv(GL_FRONT, GL_DIFFUSE, MATERIAL_RED);
-
-            glBegin(GL_POINTS);
-            glVertex3f(0.0f, 0.0f, 0.0f);
-            glEnd();
-        }
+        const auto perspective = std::get<Perspective>(data_);
+        debug_frustrum_ = ResourceLoader::getOrFactoryLoad<resource::Model>(
+            std::format("FrustrumN{:.3f}Fov{:.3f}", perspective.near, perspective.fov),
+            [](double near, double fov) { return std::make_tuple(generateFrustrum(near, fov)); }, perspective.near,
+            perspective.fov);
     }
-
-    return false;
 }
 
 void Camera3D::onViewportResize(uint32_t width, uint32_t height)
@@ -123,7 +67,9 @@ void Camera3D::onViewportResize(uint32_t width, uint32_t height)
 
 void Camera3D::displayEffect(std::shared_ptr<resource::Texture> texture, Duration duration)
 {
-    effect_ = texture;
+    effect_ = {{
+        {0, {{resource::Texture::Type::Albedo, texture}}},
+    }};
     effect_duration_ = duration;
     effect_start_time_ = now();
 }
@@ -140,6 +86,8 @@ void Camera3D::shake(Duration duration)
 
 void Camera3D::updateEffect(float delta_time)
 {
+    ProfileScope;
+
     (void)delta_time;
 
     constexpr const float SHAKING_SPREAD_ANGLE = glm::radians(60.0f);
@@ -148,7 +96,7 @@ void Camera3D::updateEffect(float delta_time)
 
     if (instant_now >= effect_start_time_ + effect_duration_)
     {
-        effect_ = nullptr;
+        effect_ = {};
     }
 
     if (instant_now < shaking_start_ + shaking_duration_)
@@ -169,80 +117,43 @@ void Camera3D::updateEffect(float delta_time)
 
 void Camera3D::renderEffect() const
 {
-    if (effect_ == nullptr)
+    ProfileScope;
+    ProfileScopeGPU("Camera3D::renderEffect");
+
+    static std::weak_ptr weak_shader = ResourceLoader::getAsset<resource::Shader>("UI");
+
+    if (effect_.size() == 0)
         return;
 
     if (!display_effects_)
         return;
 
-    PUSH_CLEAR_STATE();
-
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-
     const GLboolean depth_test_was_enabled = glIsEnabled(GL_DEPTH_TEST);
-    const GLboolean lighting_was_enabled = glIsEnabled(GL_LIGHTING);
     const GLboolean cull_face_was_enabled = glIsEnabled(GL_CULL_FACE);
     GLboolean depth_write_was_enabled = GL_TRUE;
     glGetBooleanv(GL_DEPTH_WRITEMASK, &depth_write_was_enabled);
 
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
-    glDisable(GL_LIGHTING);
     glDisable(GL_CULL_FACE);
 
-    constexpr const glm::vec2 TOP_RIGHT = {1.0f, -1.0f};
-    constexpr const glm::vec2 TOP_LEFT = {-1.0f, -1.0f};
-    constexpr const glm::vec2 BOTTOM_LEFT = {-1.0f, 1.0f};
-    constexpr const glm::vec2 BOTTOM_RIGHT = {1.0f, 1.0f};
-
-    const auto ambient = glm::vec4(glm::vec3(color::WHITE) * 0.5f, color::WHITE.w);
-    GLfloat ambient_color[] = {_v4(ambient)};
-    GLfloat diffuse_color[] = {_v4(color::WHITE)};
-    GLfloat specular_color[] = {0.0f, 0.0f, 0.0f, 1.0f};
-    glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, ambient_color);
-    glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, diffuse_color);
-    glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, specular_color);
-
-    glEnable(GL_TEXTURE_2D);
-    effect_->bind(GL_TEXTURE0);
-    const auto elapsed = now() - effect_start_time_;
-    const double duration = static_cast<double>(effect_duration_.count());
-    const double t_unclamped = (duration > 0.0) ? (static_cast<double>(elapsed.count()) / duration) : 1.0;
-    const float t = static_cast<float>(t_unclamped < 0.0 ? 0.0 : (t_unclamped > 1.0 ? 1.0 : t_unclamped));
-    const float alpha = 1.0f - t * t;
-    glColor4f(1.0f, 1.0f, 1.0f, alpha);
-
-    glBegin(GL_QUADS);
-        glTexCoord2f(1.0f, 0.0f); glVertex2f(_v2(TOP_RIGHT));
-        glTexCoord2f(0.0f, 0.0f); glVertex2f(_v2(TOP_LEFT));
-        glTexCoord2f(0.0f, 1.0f); glVertex2f(_v2(BOTTOM_LEFT));
-        glTexCoord2f(1.0f, 1.0f); glVertex2f(_v2(BOTTOM_RIGHT));
-    glEnd();
-
-    effect_->unbind(GL_TEXTURE0);
-    glDisable(GL_TEXTURE_2D);
+    auto shader = weak_shader.lock();
+    shader->bind();
+    shader->setUniform("u_Model", glm::mat3(glm::scale(glm::mat4(1.0f), {2.0f, 2.0f, 1.0f})));
+    shader->setUniform("u_Alpha", std::sqrt(std::sqrt(1.0f - static_cast<float>((now() - effect_start_time_).count()) /
+                                                                 static_cast<float>(effect_duration_.count()))));
+    effect_model_.lock()->draw(shader, effect_);
 
     if (cull_face_was_enabled)
         glEnable(GL_CULL_FACE);
     else
         glDisable(GL_CULL_FACE);
 
-    if (lighting_was_enabled)
-        glEnable(GL_LIGHTING);
-    else
-        glDisable(GL_LIGHTING);
-
     glDepthMask(depth_write_was_enabled);
     if (depth_test_was_enabled)
         glEnable(GL_DEPTH_TEST);
     else
         glDisable(GL_DEPTH_TEST);
-
-    POP_CLEAR_STATE();
 }
 
 glm::vec3 Camera3D::getPosition() const
@@ -256,13 +167,12 @@ void Camera3D::bind() const
     ProfileScopeGPU("Camera3D::bind");
 
     // Projection Matrix
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
+    glm::mat4 projection;
 
     if (std::holds_alternative<Perspective>(data_))
     {
         const auto &perspective = std::get<Perspective>(data_);
-        gluPerspective(perspective.fov, aspect_ratio_, perspective.near, perspective.far);
+        projection = glm::perspective(perspective.fov, aspect_ratio_, perspective.near, perspective.far);
     }
     else if (std::holds_alternative<Orthographic>(data_))
     {
@@ -273,13 +183,14 @@ void Camera3D::bind() const
         double bottom = -orthographic.scale;
         double top = orthographic.scale;
 
-        glOrtho(left, right, bottom, top, orthographic.near, orthographic.far);
+        projection = glm::ortho(left, right, bottom, top, orthographic.near, orthographic.far);
     }
     else
     {
         throw std::runtime_error("Camera3D type not implementd");
     }
 
+    // View Matrix
     const auto forward_world = forward();
     const auto right_world = glm::normalize(glm::cross(forward_world, UP));
     const auto fallback_right_world = glm::normalize(glm::cross(forward_world, EAST));
@@ -290,14 +201,24 @@ void Camera3D::bind() const
     const auto eye = getPosition() + offset;
     const auto look_at = eye + forward_world;
 
-    // View Matrix
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-    gluLookAt(_dv3(eye), _dv3(look_at), _dv3(UP));
+    const glm::mat4 view = glm::lookAt(eye, look_at, UP);
+
+    // Bind
+    for (auto weak_shader : shaders_)
+    {
+        auto shader = weak_shader.lock();
+        shader->bind();
+        shader->setUniform("u_Projection", projection);
+        shader->setUniform("u_View", view);
+        shader->setUniform("u_CameraPosition", eye);
+        shader->setUniform("u_WorldUp", UP);
+    }
 }
 
 glm::vec3 Camera3D::screenToWorld(const glm::vec2 &screen_position) const
 {
+    ProfileScope;
+
     glm::mat4 projection;
     if (std::holds_alternative<Orthographic>(data_))
     {

@@ -1,11 +1,12 @@
 #include "Components/CannonAIController.h"
 
-#include <Lib/OpenGL.h>
 #include <chrono>
 
+#include <Lib/OpenGL.h>
+
 #include "Singleton.h"
-#include "Utils/Color.h"
 #include "Utils/Constants.h"
+#include "Utils/Profiling.h"
 #include "Utils/Random.h"
 
 using namespace component;
@@ -20,6 +21,8 @@ CannonAIController::CannonAIController(std::weak_ptr<Transform> cannon_barrel_tr
 
 void CannonAIController::initialize()
 {
+    ProfileScope;
+
     CannonController::initialize();
     pickTargetTarget();
     target_ = target_target_;
@@ -28,6 +31,8 @@ void CannonAIController::initialize()
 
 void CannonAIController::pickTargetTarget()
 {
+    ProfileScope;
+
     constexpr const float MARGIN = 20.0f;
     constexpr const float MIN_DISTANCE = 50.0f;
 
@@ -42,6 +47,8 @@ void CannonAIController::pickTargetTarget()
 
 void CannonAIController::updateTarget(float delta_time)
 {
+    ProfileScope;
+
     if (Singleton::physics_paused)
         return;
 
@@ -67,35 +74,4 @@ void CannonAIController::updateTarget(float delta_time)
             fired_ = true;
         }
     }
-}
-
-bool CannonAIController::render() const
-{
-    if (Singleton::debug)
-    {
-        PUSH_CLEAR_STATE();
-        Singleton::active_camera.lock()->bind();
-
-        const auto target_position = glm::vec3(target_transform_.lock()->resolve()[3]);
-        const auto target_target_position = glm::vec3(target_target_transform_.lock()->resolve()[3]);
-
-        glMaterialfv(GL_FRONT, GL_AMBIENT, color::MATERIAL_GREEN);
-        glMaterialfv(GL_FRONT, GL_DIFFUSE, color::MATERIAL_GREEN);
-
-        glLineWidth(5.0f);
-
-        glEnable(GL_LINE_STIPPLE);
-        glLineStipple(1, 0x00FF);
-
-        glBegin(GL_LINES);
-        glVertex3f(_v3(target_position));
-        glVertex3f(_v3(target_target_position));
-        glEnd();
-
-        glDisable(GL_LINE_STIPPLE);
-
-        POP_CLEAR_STATE();
-    }
-
-    return CannonController::render();
 }

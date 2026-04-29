@@ -7,6 +7,16 @@ INCLUDE_DIR = BASE_DIR / "Include"
 errors = []
 changes_made = False
 
+FORBIDDEN_LIBS = (
+    "\"glm",
+    "\"GLFW",
+    "\"GL",
+    "\"gl",
+    "\"stb",
+    "\"tinygltf",
+    "\"Lib/",
+)
+
 def check_libs(path, lines):
     global changes_made
 
@@ -14,12 +24,7 @@ def check_libs(path, lines):
 
     new_lines = []
     for line in lines:
-        if (line.startswith("#include \"glm")
-        or line.startswith("#include \"GLFW")
-        or line.startswith("#include \"GL")
-        or line.startswith("#include \"gl")
-        or line.startswith("#include \"stb")
-        or line.startswith("#include \"tinygltf")):
+        if any(map(lambda l: line.startswith(f"#include {l}"), FORBIDDEN_LIBS)):
             edited = True
             print(f"removed {line} from {path.relative_to(BASE_DIR)}")
             continue

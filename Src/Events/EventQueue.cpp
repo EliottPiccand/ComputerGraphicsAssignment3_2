@@ -1,7 +1,13 @@
 #include "Events/EventQueue.h"
 
+#include <cstddef>
+
+#include "Utils/Profiling.h"
+
 void EventQueue::processAll()
 {
+    ProfileScope;
+
     for (size_t i = 0; i < events_.size(); ++i)
     {
         const auto &raw_event = events_[i];

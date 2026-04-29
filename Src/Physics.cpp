@@ -4,9 +4,9 @@
 #include <tuple>
 #include <unordered_set>
 
-#include "GameObject.h"
 #include "Utils/Constants.h"
 #include "Utils/Math.h"
+#include "Utils/Profiling.h"
 
 void Physics::addRigidBody(std::weak_ptr<component::RigidBody> rigid_body)
 {
@@ -23,6 +23,8 @@ void Physics::addCollider(std::weak_ptr<component::Collider> collider, bool is_w
 
 void Physics::update(float delta_time)
 {
+    ProfileScope;
+
     struct OverlapResolution
     {
         bool overlaps;
@@ -270,6 +272,8 @@ void Physics::update(float delta_time)
 std::vector<glm::vec3> Physics::simulateCannonballTrajectory(const glm::vec3 &initial_position,
                                                              const glm::vec3 &initial_velocity)
 {
+    ProfileScope;
+
     constexpr const float DT = 0.05f;
 
     std::vector<glm::vec3> positions;

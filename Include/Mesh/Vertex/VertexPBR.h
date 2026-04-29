@@ -1,41 +1,27 @@
 #pragma once
 
 #include <cstddef>
-#include <cstdint>
 #include <functional>
-#include <utility>
-#include <vector>
 
 #include <Lib/glm.h>
 
-struct Vertex
+struct VertexPBR
 {
     glm::vec3 position;
     glm::vec3 normal;
     glm::vec2 uv;
 
-    friend bool operator==(const Vertex &, const Vertex &) = default;
+    static void setupVertexArray();
+
+    friend bool operator==(const VertexPBR &, const VertexPBR &) = default;
 };
-
-using IndexType = uint16_t;
-
-using Mesh = std::pair<std::vector<Vertex>, std::vector<IndexType>>;
-
-/// Plane facing +Z, indices made to be drawn as a triangle strip
-Mesh generateQuadPlane(float side_length, size_t quads_per_side);
-
-/// height along +Z, resolution is the amount of segments that each disk is approximated to
-Mesh generateCylinder(float height, float radius, size_t resolution);
-
-/// height along +Z, resolution is the amount of segments that each disk is approximated to
-Mesh generateCone(float height, float radius, size_t resolution);
 
 namespace std
 {
 
-template <> struct hash<Vertex>
+template <> struct hash<VertexPBR>
 {
-    size_t operator()(const Vertex &v) const noexcept
+    size_t operator()(const VertexPBR &v) const noexcept
     {
         const size_t h1 = std::hash<float>{}(v.position.x);
         const size_t h2 = std::hash<float>{}(v.position.y);

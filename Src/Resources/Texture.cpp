@@ -5,6 +5,8 @@
 #include <Lib/stb.h>
 
 #include "Utils/Log.h"
+#include "Utils/Path.h"
+#include "Utils/Profiling.h"
 
 using namespace resource;
 
@@ -22,12 +24,16 @@ Texture::~Texture()
 
 std::shared_ptr<Texture> Texture::loadFromFile(const std::filesystem::path &path)
 {
+    ProfileScope;
+
+    LOG_DEBUG("loading texture '{}'", relativeToExeDir(path).string());
+
     int width, height, channels;
     unsigned char *data = stbi_load(path.generic_string().c_str(), &width, &height, &channels, 0);
 
     if (data == nullptr)
     {
-        LOG_ERROR("failed to load texture '{}'", path.string());
+        LOG_ERROR("failed to load texture '{}'", relativeToExeDir(path).string());
         throw std::runtime_error("failed to load texture");
     }
 
@@ -67,14 +73,9 @@ std::shared_ptr<Texture> Texture::loadFromFile(const std::filesystem::path &path
     return std::make_shared<Texture>(id);
 }
 
-void Texture::bind(GLenum slot) const
+void Texture::bind(GLenum slot, std::shared_ptr<resource::Shader> shader, const char *uniform_slot) const
 {
     glActiveTexture(slot);
     glBindTexture(GL_TEXTURE_2D, id_);
-}
-
-void Texture::unbind(GLenum slot) const
-{
-    glActiveTexture(slot);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    shader->bindTexture(uniform_slot, static_cast<GLint>(slot - GL_TEXTURE0));
 }

@@ -7,6 +7,8 @@
 #include <utility>
 #include <vector>
 
+#include <Lib/glm.h>
+
 #include "Components/Component.h"
 
 using GameObjectId = size_t;
@@ -21,7 +23,7 @@ class GameObject : public std::enable_shared_from_this<GameObject>
 
     void initialize();
     void update(float delta_time);
-    void render() const;
+    void render(const glm::mat4 &transform = glm::mat4(1.0f)) const;
 
     GameObjectId getId() const;
 

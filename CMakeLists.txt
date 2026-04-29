@@ -22,7 +22,7 @@ target_compile_options(${EXECUTABLE_NAME} PRIVATE
   -Wno-switch-default
   -Wno-global-constructors
   -Wno-exit-time-destructors
-  -Werror
+  #-Werror
   -O3
 )
 
@@ -49,12 +49,20 @@ if(CMAKE_BUILD_TYPE STREQUAL "Profiling")
     target_link_libraries(${EXECUTABLE_NAME} PRIVATE Tracy::TracyClient)
 endif()
 
+find_package(Python REQUIRED COMPONENTS Interpreter)
+
+# --- Shader Structs Check ---
+add_custom_target(check-shaders-structs-layout ALL
+  COMMAND ${Python_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/Scripts/check_shaders_structs_layout.py
+  COMMENT "Checking shaders structs layout"
+)
+
+add_dependencies(${EXECUTABLE_NAME} check-shaders-structs-layout)
+
 # --- Assets ---
 set(ASSETS_SRC_DIR ${CMAKE_CURRENT_LIST_DIR}/Assets)
 set(ASSETS_DST_DIR ${CMAKE_BINARY_DIR}/Assets)
 set(ASSETS_BYPRODUCT ${CMAKE_CURRENT_BINARY_DIR}/.copy_assets_timestamp)
-
-find_package(Python REQUIRED COMPONENTS Interpreter)
 
 add_custom_target(copy-assets ALL
     COMMAND ${Python_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/Scripts/copy_assets.py ${ASSETS_SRC_DIR} ${ASSETS_DST_DIR} ${ASSETS_BYPRODUCT}

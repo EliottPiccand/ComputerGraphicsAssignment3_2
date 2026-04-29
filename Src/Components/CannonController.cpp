@@ -8,13 +8,10 @@
 #include "Components/Collider.h"
 #include "Events/EventQueue.h"
 #include "Events/Fire.h"
-#include "GameObject.h" // IWYU pragma: keep
-#include "Physics.h"
-#include "Singleton.h"
-#include "Utils/Color.h"
 #include "Utils/Constants.h"
 #include "Utils/Log.h"
 #include "Utils/Math.h"
+#include "Utils/Profiling.h"
 
 using namespace component;
 
@@ -27,6 +24,8 @@ CannonController::CannonController(std::weak_ptr<Transform> cannon_barrel_transf
 
 void CannonController::initialize()
 {
+    ProfileScope;
+
     GET_COMPONENT(Transform, transform_, CannonController);
 
     std::shared_ptr<Collider> shooter_collider;
@@ -36,6 +35,8 @@ void CannonController::initialize()
 
 glm::vec3 CannonController::getShootingInitialVelocity(const glm::vec3 &target) const
 {
+    ProfileScope;
+
     /// c.f. Ballistic.pdf
     const auto position = glm::vec3(barrel_transform_.lock()->resolve()[3]);
 
@@ -65,6 +66,8 @@ void CannonController::updateTarget(float delta_time)
 
 void CannonController::update(float delta_time)
 {
+    ProfileScope;
+
     constexpr const float RECOIL_AMPLITUDE = 0.3f; // m
     constexpr const float RECOIL_DECAY_INTENSITY = 0.9f;
 
@@ -114,40 +117,16 @@ void CannonController::update(float delta_time)
 
     if (fired_)
     {
-        EventQueue::post<event::Fire>(glm::vec3(barrel_transform->resolve()[3]), cannon_ball_initial_velocity_,
-                                      shooter_id_);
+        const auto cannon_ball_position = glm::vec3(barrel_transform->resolve()[3]);
+
+        LOG_TRACE("fire from {:.1f} {:.1f} {:.1f} at {:.1f} {:.1f} {:.1f} m/s by {}", cannon_ball_position.x, cannon_ball_position.y,
+                  cannon_ball_position.z, cannon_ball_initial_velocity_.x, cannon_ball_initial_velocity_.y,
+                  cannon_ball_initial_velocity_.z, shooter_id_);
+
+        EventQueue::post<event::Fire>(cannon_ball_position, cannon_ball_initial_velocity_, shooter_id_);
 
         aiming_ = false;
         fired_ = false;
         recoil_ = RECOIL_AMPLITUDE;
     }
-}
-
-bool CannonController::render() const
-{
-    if (Singleton::debug)
-    {
-        PUSH_CLEAR_STATE();
-
-        Singleton::active_camera.lock()->bind();
-
-        const auto position = glm::vec3(barrel_transform_.lock()->resolve()[3]);
-        const auto trajectory = Physics::simulateCannonballTrajectory(position, cannon_ball_initial_velocity_);
-
-        constexpr const GLfloat material[] = {_v4(color::BLUE)};
-        glMaterialfv(GL_FRONT, GL_AMBIENT, material);
-        glMaterialfv(GL_FRONT, GL_DIFFUSE, material);
-
-        glLineWidth(3.0f);
-
-        glBegin(GL_LINE_STRIP);
-        for (const auto &trajectory_position : trajectory)
-        {
-            glVertex3f(_v3(trajectory_position));
-        }
-        glEnd();
-
-        POP_CLEAR_STATE();
-    }
-    return false;
 }

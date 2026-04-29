@@ -1,15 +1,14 @@
 #pragma once
 
-#include <cstddef>
-
 #include "Utils/Time.h"
+#include <cstddef>
 
 class Clock
 {
   public:
     Clock();
 
-    float tick();
+    [[nodiscard]] float tick();
     [[nodiscard]] float getFps();
 
   private:

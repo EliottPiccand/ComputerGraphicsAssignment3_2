@@ -2,9 +2,10 @@
 
 #include <memory>
 
+#include <Lib/glm.h>
+
 #include "Components/Component.h"
 #include "Resources/Texture.h"
-#include "Utils/MeshPrimitives.h"
 
 namespace component
 {
@@ -12,20 +13,15 @@ namespace component
 class Flag : public Component
 {
   public:
-    Flag(std::shared_ptr<resource::Texture> texture);
+    Flag(std::weak_ptr<resource::Texture> texture);
 
-    static void createMesh();
-    static void updateFlapping(float delta_time);
-    bool render() const override;
+    void update(float delta_time) override;
+    void render(glm::mat4 &transform) const override;
 
   private:
-    static inline Mesh mesh_;
-    static inline GLuint vertex_array_;
-    static inline GLuint vertex_buffer_;
-    static inline GLuint index_buffer_;
-    static inline GLsizei index_count_;
+    float animation_time_;
 
-    std::shared_ptr<resource::Texture> texture_;
+    std::weak_ptr<resource::Texture> texture_;
 };
 
 } // namespace component

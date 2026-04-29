@@ -18,7 +18,6 @@ class CannonAIController : public CannonController
                        std::weak_ptr<Transform> target_target_transform);
 
     void initialize() override;
-    bool render() const override;
 
     void pickTargetTarget();
     void updateTarget(float delta_time) override;

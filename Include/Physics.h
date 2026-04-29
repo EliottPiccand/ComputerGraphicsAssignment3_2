@@ -15,8 +15,8 @@ class Physics
     static void addCollider(std::weak_ptr<component::Collider> collider, bool is_water = false);
     static void update(float delta_time);
 
-    static std::vector<glm::vec3> simulateCannonballTrajectory(const glm::vec3 &initial_position,
-                                                               const glm::vec3 &initial_velocity);
+    [[nodiscard]] static std::vector<glm::vec3> simulateCannonballTrajectory(const glm::vec3 &initial_position,
+                                                                             const glm::vec3 &initial_velocity);
 
   private:
     static inline std::weak_ptr<component::Collider> water_collider_;

@@ -117,19 +117,11 @@ void Transform::pointToward(const glm::vec3 &direction)
     rotation_ = glm::normalize(glm::angleAxis(rotation_angle, rotation_axis / axis_length) * rotation_);
 }
 
-bool Transform::render() const
+void Transform::render(glm::mat4 &transform) const
 {
     ProfileScope;
     ProfileScopeGPU("Transform::render");
 
-    glMatrixMode(GL_MODELVIEW);
-    glPushMatrix();
-
-    glm::mat4 rotation_matrix = glm::mat4_cast(rotation_);
-
-    glTranslatef(_v3(position_));
-    glMultMatrixf(glm::value_ptr(rotation_matrix));
-    glScalef(_v3(scale_));
-
-    return true;
+    const glm::mat4 local = glm::translate(position_) * glm::mat4_cast(rotation_) * glm::scale(scale_);
+    transform = transform * local;
 }

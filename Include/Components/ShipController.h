@@ -2,16 +2,16 @@
 
 #include <memory>
 
+#include <Lib/glm.h>
+
 #include "Components/Component.h"
 #include "Components/RigidBody.h"
 #include "Components/Transform.h"
 
-#include <Lib/glm.h>
-
 namespace component
 {
 
-/// This class should never
+/// This class should never be directly instanciated
 class ShipController : public Component
 {
   public:

@@ -1,17 +1,17 @@
 #include "Resources/Model.h"
 
+#include <cassert>
 #include <cstdint>
 #include <fstream>
 #include <ranges>
 #include <span>
 #include <stdexcept>
-#include <unordered_map>
 
 #include <Lib/tiny_gltf.h>
 
-#include "Lib/OpenGL.h"
 #include "Resources/ResourceLoader.h"
 #include "Utils/Log.h"
+#include "Utils/Path.h"
 #include "Utils/Profiling.h"
 
 using namespace resource;
@@ -111,14 +111,14 @@ static void fs_free_file(uint8_t *data, uint64_t size, void *user_data)
 
 #pragma endregion tinygltf_callbacks
 
-Model::Model(GLuint vertex_array, GLuint vertex_buffer, std::vector<Mesh_> meshes)
-    : vertex_array_(vertex_array), vertex_buffer_(vertex_buffer), meshes_(std::move(meshes))
+Model::Model(GLuint vertex_array, GLuint vertex_buffer, std::vector<Shape> meshes)
+    : vertex_array_(vertex_array), vertex_buffer_(vertex_buffer), shapes_(std::move(meshes))
 {
 }
 
 Model::~Model()
 {
-    for (const auto &mesh : meshes_)
+    for (const auto &mesh : shapes_)
     {
         glDeleteBuffers(1, &mesh.index_buffer);
     }
@@ -130,8 +130,8 @@ namespace
 {
 
 void processNode(const size_t node_index, const glm::mat4 &parent_transform, const tg3_model &model,
-                 const std::filesystem::path &path, std::vector<Vertex> &vertices,
-                 std::unordered_map<Vertex, GLuint> &vertex_map,
+                 const std::filesystem::path &path, std::vector<VertexPBR> &vertices,
+                 std::unordered_map<VertexPBR, GLuint> &vertex_map,
                  std::unordered_map<int, std::vector<IndexType>> &material_indices)
 {
 
@@ -147,8 +147,8 @@ void processNode(const size_t node_index, const glm::mat4 &parent_transform, con
 
     if (node_index >= model_nodes.size())
     {
-        LOG_WARNING("ill formatted gltf '{}', found node index {} >= model node count, skipped", path.string(),
-                    node_index);
+        LOG_WARNING("ill formatted gltf '{}', found node index {} >= model node count, skipped",
+                    relativeToExeDir(path).string(), node_index);
         return;
     }
     const auto &node = model_nodes[node_index];
@@ -175,7 +175,7 @@ void processNode(const size_t node_index, const glm::mat4 &parent_transform, con
                 if (attribute.value < 0 || model_accessors.size() <= static_cast<size_t>(attribute.value))
                 {
                     LOG_WARNING("ill formatted gltf '{}', found accessor index {} >= model accessor count, skipped",
-                                path.string(), attribute.value);
+                                relativeToExeDir(path).string(), attribute.value);
                     continue;
                 }
 
@@ -184,7 +184,7 @@ void processNode(const size_t node_index, const glm::mat4 &parent_transform, con
                 {
                     LOG_WARNING(
                         "ill formatted gltf '{}', found buffer view index {} >= model buffer view count, skipped",
-                        path.string(), accessor.buffer_view);
+                        relativeToExeDir(path).string(), accessor.buffer_view);
                     continue;
                 }
 
@@ -192,7 +192,7 @@ void processNode(const size_t node_index, const glm::mat4 &parent_transform, con
                 if (bufferView.buffer < 0 || model_buffers.size() <= static_cast<size_t>(bufferView.buffer))
                 {
                     LOG_WARNING("ill formatted gltf '{}', found buffer index {} >= model buffer count, skipped",
-                                path.string(), bufferView.buffer);
+                                relativeToExeDir(path).string(), bufferView.buffer);
                     continue;
                 }
 
@@ -222,7 +222,7 @@ void processNode(const size_t node_index, const glm::mat4 &parent_transform, con
                 {
                     LOG_WARNING(
                         "ill formatted gltf '{}', found buffer view index {} >= model buffer view count, skipped",
-                        path.string(), index_accessor.buffer_view);
+                        relativeToExeDir(path).string(), index_accessor.buffer_view);
                     continue;
                 }
 
@@ -232,7 +232,7 @@ void processNode(const size_t node_index, const glm::mat4 &parent_transform, con
                 {
                     LOG_WARNING(
                         "ill formatted gltf '{}', found buffer view index {} >= model buffer view count, skipped",
-                        path.string(), index_buffer_view.buffer);
+                        relativeToExeDir(path).string(), index_buffer_view.buffer);
                     continue;
                 }
 
@@ -253,11 +253,11 @@ void processNode(const size_t node_index, const glm::mat4 &parent_transform, con
                         {
                             LOG_WARNING("ill formatted gltf '{}', found buffer buffer vertex index ({}) >= vertex "
                                         "count ({}), skipped",
-                                        path.string(), original_index, vertex_count);
+                                        relativeToExeDir(path).string(), original_index, vertex_count);
                             continue;
                         }
 
-                        Vertex vertex{};
+                        VertexPBR vertex{};
                         if (positions != nullptr)
                         {
                             glm::vec4 transformed_position =
@@ -291,11 +291,11 @@ void processNode(const size_t node_index, const glm::mat4 &parent_transform, con
                         {
                             LOG_WARNING("ill formatted gltf '{}', found buffer buffer vertex index ({}) >= vertex "
                                         "count ({}), skipped",
-                                        path.string(), original_index, vertex_count);
+                                        relativeToExeDir(path).string(), original_index, vertex_count);
                             continue;
                         }
 
-                        Vertex vertex{};
+                        VertexPBR vertex{};
                         if (positions != nullptr)
                         {
                             glm::vec4 transformed_position =
@@ -322,7 +322,7 @@ void processNode(const size_t node_index, const glm::mat4 &parent_transform, con
                 else
                 {
                     LOG_ERROR("failed to load gltf file '{}': unsupported gltf index accessor component type: {}",
-                              path.string(), index_accessor.component_type);
+                              relativeToExeDir(path).string(), index_accessor.component_type);
                     throw std::runtime_error("model loading failed");
                 }
             }
@@ -334,8 +334,8 @@ void processNode(const size_t node_index, const glm::mat4 &parent_transform, con
     {
         if (child < 0)
         {
-            LOG_WARNING("ill formatted gltf '{}', found node index {} >= model node count, skipped", path.string(),
-                        child);
+            LOG_WARNING("ill formatted gltf '{}', found node index {} >= model node count, skipped",
+                        relativeToExeDir(path).string(), child);
             continue;
         }
 
@@ -348,12 +348,14 @@ void processNode(const size_t node_index, const glm::mat4 &parent_transform, con
 
 std::shared_ptr<Model> Model::loadFromFile(const std::filesystem::path &path)
 {
-    LOG_DEBUG("loading model '{}'", path.string());
+    ProfileScope;
+
+    LOG_DEBUG("loading model '{}'", relativeToExeDir(path).string());
 
     std::ifstream file(path, std::ios::binary);
     if (!file.is_open())
     {
-        LOG_ERROR("failed to open file '{}'", path.string());
+        LOG_ERROR("failed to open file '{}'", relativeToExeDir(path).string());
         throw std::runtime_error("file open failed");
     }
 
@@ -398,7 +400,7 @@ std::shared_ptr<Model> Model::loadFromFile(const std::filesystem::path &path)
                 }
             }
         }
-        LOG_ERROR("failed to load model '{}': {}", path.string(), static_cast<int>(err));
+        LOG_ERROR("failed to load model '{}': {}", relativeToExeDir(path).string(), static_cast<int>(err));
         throw std::runtime_error("model parsing failed");
     }
 
@@ -415,11 +417,10 @@ std::shared_ptr<Model> Model::loadFromFile(const std::filesystem::path &path)
 
         const auto texture = ResourceLoader::getAsset<Texture>(uri);
         textures.push_back(texture);
-        LOG_DEBUG("loaded texture: {}", uri);
     }
 
-    std::vector<Vertex> vertices;
-    std::unordered_map<Vertex, GLuint> vertex_map;
+    std::vector<VertexPBR> vertices;
+    std::unordered_map<VertexPBR, GLuint> vertex_map;
     std::unordered_map<int, std::vector<IndexType>> material_indices;
 
     int32_t scene_index_int = model.default_scene;
@@ -444,7 +445,8 @@ std::shared_ptr<Model> Model::loadFromFile(const std::filesystem::path &path)
     {
         if (node < 0)
         {
-            LOG_WARNING("ill formatted gltf '{}', found node index {} < 0, skipped", path.string(), node);
+            LOG_WARNING("ill formatted gltf '{}', found node index {} < 0, skipped", relativeToExeDir(path).string(),
+                        node);
             continue;
         }
         processNode(static_cast<size_t>(node), glm::mat4(1.0f), model, path, vertices, vertex_map, material_indices);
@@ -456,7 +458,7 @@ std::shared_ptr<Model> Model::loadFromFile(const std::filesystem::path &path)
         throw std::runtime_error("no geometry extracted from model");
     }
 
-    // Create VAO and VBO
+    // Create VAO & VBO
     GLuint vertex_array;
     glGenVertexArrays(1, &vertex_array);
     glBindVertexArray(vertex_array);
@@ -464,24 +466,16 @@ std::shared_ptr<Model> Model::loadFromFile(const std::filesystem::path &path)
     GLuint vertex_buffer;
     glGenBuffers(1, &vertex_buffer);
     glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
-    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(vertices.size() * sizeof(Vertex)), vertices.data(),
+    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(vertices.size() * sizeof(VertexPBR)), vertices.data(),
                  GL_STATIC_DRAW);
 
-    // Bind vertex attributes
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glVertexPointer(3, GL_FLOAT, sizeof(Vertex), reinterpret_cast<const void *>(offsetof(Vertex, position)));
-
-    glEnableClientState(GL_NORMAL_ARRAY);
-    glNormalPointer(GL_FLOAT, sizeof(Vertex), reinterpret_cast<const void *>(offsetof(Vertex, normal)));
-
-    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-    glTexCoordPointer(2, GL_FLOAT, sizeof(Vertex), reinterpret_cast<const void *>(offsetof(Vertex, uv)));
+    VertexPBR::setupVertexArray();
 
     // Create meshes with materials
     const std::span<const tg3_material> model_materials(model.materials, model.materials_count);
     const std::span<const tg3_texture> model_textures(model.textures, model.textures_count);
 
-    std::vector<Model::Mesh_> meshes;
+    std::vector<Model::Shape> meshes;
     for (const auto &[matIndex, indices] : material_indices)
     {
         GLuint index_buffer;
@@ -519,7 +513,7 @@ std::shared_ptr<Model> Model::loadFromFile(const std::filesystem::path &path)
 
         // Metallic and Roughness Factors
         material.metallic_factor = static_cast<float>(gltf_material.pbr_metallic_roughness.metallic_factor);
-        material.roughness = static_cast<float>(gltf_material.pbr_metallic_roughness.roughness_factor);
+        material.roughness_factor = static_cast<float>(gltf_material.pbr_metallic_roughness.roughness_factor);
 
         // Metallic Roughness Texture
         if (gltf_material.pbr_metallic_roughness.metallic_roughness_texture.index >= 0)
@@ -550,9 +544,9 @@ std::shared_ptr<Model> Model::loadFromFile(const std::filesystem::path &path)
         }
 
         // Emissive Factor
-        material.emissive_factor = Color(static_cast<float>(gltf_material.emissive_factor[0]),
-                                         static_cast<float>(gltf_material.emissive_factor[1]),
-                                         static_cast<float>(gltf_material.emissive_factor[2]), 1.0f);
+        material.emissive_color = Color(static_cast<float>(gltf_material.emissive_factor[0]),
+                                        static_cast<float>(gltf_material.emissive_factor[1]),
+                                        static_cast<float>(gltf_material.emissive_factor[2]), 1.0f);
 
         // Emissive Texture
         if (gltf_material.emissive_texture.index >= 0)
@@ -582,7 +576,7 @@ std::shared_ptr<Model> Model::loadFromFile(const std::filesystem::path &path)
             }
         }
 
-        LOG_DEBUG("loaded material with {} textures",
+        LOG_TRACE("loaded material with {} textures",
                   (material.base_color_texture ? 1 : 0) + (material.metallic_roughness_texture ? 1 : 0) +
                       (material.normal_texture ? 1 : 0) + (material.emissive_texture ? 1 : 0) +
                       (material.ambient_occlusion_texture ? 1 : 0));
@@ -603,121 +597,116 @@ std::shared_ptr<Model> Model::loadFromFile(const std::filesystem::path &path)
 
     for (size_t i = 0; i < meshes.size(); ++i)
     {
-        LOG_DEBUG("mesh {}: {} indices", i, meshes[i].index_count);
+        LOG_TRACE("mesh {}: {} indices", i, meshes[i].index_count);
     }
 
     tg3_model_free(&model);
 
-    LOG_DEBUG("loaded model with {} meshes", meshes.size());
+    LOG_TRACE("loaded model with {} meshes", meshes.size());
 
     return std::make_shared<Model>(vertex_array, vertex_buffer, meshes);
 #pragma clang diagnostic pop
 }
 
-std::shared_ptr<Model> Model::load(const Mesh &mesh, const Color &color)
+static const Model::TextureOverride::mapped_type EMPTY_OVERRIDE = {};
+constexpr const GLenum BASE_COLOR_TEXTURE_SLOT = GL_TEXTURE0;
+constexpr const GLenum METALLIC_ROUGHNESS_TEXTURE_SLOT = GL_TEXTURE1;
+
+void Model::draw(std::shared_ptr<resource::Shader> shader, TextureOverride texture_override) const
 {
-    const auto &[vertices, indices] = mesh;
-
-    GLuint vertex_array;
-    glGenVertexArrays(1, &vertex_array);
-    glBindVertexArray(vertex_array);
-
-    GLuint vertex_buffer;
-    glGenBuffers(1, &vertex_buffer);
-    glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
-    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(vertices.size() * sizeof(Vertex)), vertices.data(),
-                 GL_STATIC_DRAW);
-
-    // Bind vertex attributes
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glVertexPointer(3, GL_FLOAT, sizeof(Vertex), reinterpret_cast<const void *>(offsetof(Vertex, position)));
-
-    glEnableClientState(GL_NORMAL_ARRAY);
-    glNormalPointer(GL_FLOAT, sizeof(Vertex), reinterpret_cast<const void *>(offsetof(Vertex, normal)));
-
-    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-    glTexCoordPointer(2, GL_FLOAT, sizeof(Vertex), reinterpret_cast<const void *>(offsetof(Vertex, uv)));
-
-    GLuint index_buffer;
-    glGenBuffers(1, &index_buffer);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, static_cast<GLsizeiptr>(indices.size() * sizeof(IndexType)), indices.data(),
-                 GL_STATIC_DRAW);
-
-    glBindVertexArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
-    std::vector<Mesh_> meshes;
-    meshes.push_back({
-        .index_buffer = index_buffer,
-        .index_count = static_cast<GLsizei>(indices.size()),
-        .material = {
-            .base_color = color,
-        },
-    });
-
-    return std::make_shared<Model>(vertex_array, vertex_buffer, meshes);
-}
-
-void Model::draw(TextureOverride texture_override) const
-{
-    static const TextureOverride::mapped_type EMPTY_OVERRIDE = {};
-
     ProfileScope;
     ProfileScopeGPU("Model::draw");
-
-    constexpr const GLenum BASE_COLOR_TEXTURE_SLOT = GL_TEXTURE0;
 
     glBindVertexArray(vertex_array_);
     glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
 
-    for (const auto &&[i, mesh] : meshes_ | std::views::enumerate)
+    for (const auto &&[i, mesh] : shapes_ | std::views::enumerate)
     {
         const auto &material = mesh.material;
 
         const auto it = texture_override.find(static_cast<size_t>(i));
         const auto &material_texture_override = it != texture_override.end() ? it->second : EMPTY_OVERRIDE;
 
-        const auto ambient = glm::vec4(glm::vec3(material.base_color) * 0.5f, material.base_color.w);
-        GLfloat ambient_color[] = {_v4(ambient)};
-        GLfloat diffuse_color[] = {_v4(material.base_color)};
-        GLfloat specular_color[] = {0.0f, 0.0f, 0.0f, 1.0f};
-        glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, ambient_color);
-        glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, diffuse_color);
-        glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, specular_color);
+        auto base_color_texture = material_texture_override.contains(Texture::Type::Albedo)
+                                      ? material_texture_override.at(Texture::Type::Albedo)
+                                      : material.base_color_texture;
+        if (base_color_texture == nullptr)
+        {
+            base_color_texture = Texture::MISSING;
+        }
+        base_color_texture->bind(BASE_COLOR_TEXTURE_SLOT, shader, "u_Texture");
+        shader->setUniform("u_TextureColor", material.base_color);
 
-        if (material_texture_override.contains(Texture::Type::Albedo))
+        auto metallic_roughness_texture = material_texture_override.contains(Texture::Type::MetallicRoughness)
+                                              ? material_texture_override.at(Texture::Type::MetallicRoughness)
+                                              : material.metallic_roughness_texture;
+        if (base_color_texture == nullptr)
         {
-            glEnable(GL_TEXTURE_2D);
-            material_texture_override.at(Texture::Type::Albedo)->bind(BASE_COLOR_TEXTURE_SLOT);
+            base_color_texture = Texture::MISSING;
         }
-        else if (material.base_color_texture)
-        {
-            glEnable(GL_TEXTURE_2D);
-            material.base_color_texture->bind(BASE_COLOR_TEXTURE_SLOT);
-        }
-        else
-        {
-            glDisable(GL_TEXTURE_2D);
-        }
+        base_color_texture->bind(METALLIC_ROUGHNESS_TEXTURE_SLOT, shader, "u_MetallicRoughnessTex");
+        shader->setUniform("u_MetallicFactor", material.metallic_factor);
+        shader->setUniform("u_RoughnessFactor", material.roughness_factor);
 
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.index_buffer);
-        glDrawElements(GL_TRIANGLES, mesh.index_count, GL_UNSIGNED_SHORT, nullptr);
-
-        if (material_texture_override.contains(Texture::Type::Albedo))
-        {
-            material_texture_override.at(Texture::Type::Albedo)->unbind(BASE_COLOR_TEXTURE_SLOT);
-            glDisable(GL_TEXTURE_2D);
-        }
-        else if (material.base_color_texture)
-        {
-            material.base_color_texture->unbind(BASE_COLOR_TEXTURE_SLOT);
-            glDisable(GL_TEXTURE_2D);
-        }
+        glDrawElements(GL_TRIANGLES, mesh.index_count, GL_INDEX_TYPE, nullptr);
     }
+}
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
+void Model::drawInstanced(std::shared_ptr<resource::Shader> shader, size_t intance_count,
+                          TextureOverride texture_override) const
+{
+    ProfileScope;
+    ProfileScopeGPU("Model::drawInstanced");
+
+    glBindVertexArray(vertex_array_);
+    glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
+
+    for (const auto &&[i, mesh] : shapes_ | std::views::enumerate)
+    {
+        const auto &material = mesh.material;
+
+        const auto it = texture_override.find(static_cast<size_t>(i));
+        const auto &material_texture_override = it != texture_override.end() ? it->second : EMPTY_OVERRIDE;
+
+        auto base_color_texture = material_texture_override.contains(Texture::Type::Albedo)
+                                      ? material_texture_override.at(Texture::Type::Albedo)
+                                      : material.base_color_texture;
+        if (base_color_texture == nullptr)
+        {
+            base_color_texture = Texture::MISSING;
+        }
+        base_color_texture->bind(BASE_COLOR_TEXTURE_SLOT, shader, "u_Texture");
+        shader->setUniform("u_TextureColor", material.base_color);
+
+        auto metallic_roughness_texture = material_texture_override.contains(Texture::Type::MetallicRoughness)
+                                              ? material_texture_override.at(Texture::Type::MetallicRoughness)
+                                              : material.metallic_roughness_texture;
+        if (base_color_texture == nullptr)
+        {
+            base_color_texture = Texture::MISSING;
+        }
+        base_color_texture->bind(METALLIC_ROUGHNESS_TEXTURE_SLOT, shader, "u_MetallicRoughnessTex");
+        shader->setUniform("u_MetallicFactor", material.metallic_factor);
+        shader->setUniform("u_RoughnessFactor", material.roughness_factor);
+
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.index_buffer);
+        glDrawElementsInstanced(GL_TRIANGLES, mesh.index_count, GL_INDEX_TYPE, nullptr,
+                                static_cast<GLsizei>(intance_count));
+    }
+}
+
+void Model::bind() const
+{
+    assert(shapes_.size() == 1 && "Model::bind() is only made for single shape models");
+
+    glBindVertexArray(vertex_array_);
+    glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, shapes_[0].index_buffer);
+}
+
+GLsizei Model::getIndexCount() const
+{
+    assert(shapes_.size() == 1 && "Model::getIndexCount() is only made for single shape models");
+    return shapes_[0].index_count;
 }

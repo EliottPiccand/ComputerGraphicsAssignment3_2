@@ -14,7 +14,6 @@ class ShipPlayerController : public ShipController
 
   protected:
     void updateStates() override;
-
 };
 
 } // namespace component

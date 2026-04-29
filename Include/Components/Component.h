@@ -2,6 +2,8 @@
 
 #include <memory>
 
+#include <Lib/glm.h>
+
 class GameObject;
 
 namespace component
@@ -14,7 +16,7 @@ class Component : public std::enable_shared_from_this<Component>
 
     virtual void initialize();
     virtual void update(float delta_time);
-    virtual bool render() const; /// return true if a model-view matrix has been pushed onto OpenGL stack
+    virtual void render(glm::mat4 &transform) const;
 
     void setOwner(std::shared_ptr<GameObject> game_object);
     [[nodiscard]] std::shared_ptr<GameObject> getOwner() const;

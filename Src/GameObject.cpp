@@ -105,7 +105,7 @@ void GameObject::update(float delta_time)
     }
 }
 
-void GameObject::render() const
+void GameObject::render(const glm::mat4 &parent_transform) const
 {
     if (!visible)
     {
@@ -114,24 +114,15 @@ void GameObject::render() const
 
     assert(initialized_ && "GameObject::render called while uninitialized");
 
-    size_t matrices_to_pop = 0;
+    glm::mat4 transform = parent_transform;
 
     for (const auto &component : components_)
     {
-        if (component->render())
-        {
-            matrices_to_pop += 1;
-        }
+        component->render(transform);
     }
 
     for (const auto &child : children_)
     {
-        child->render();
-    }
-
-    while (matrices_to_pop > 0)
-    {
-        glPopMatrix();
-        matrices_to_pop -= 1;
+        child->render(transform);
     }
 }

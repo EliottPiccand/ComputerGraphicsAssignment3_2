@@ -10,8 +10,8 @@ using namespace component;
 
 ShipPlayerController::ShipPlayerController() : ShipController()
 {
-    Input::bindKey(Input::Action::SpeedUp, GLFW_KEY_W);
-    Input::bindKey(Input::Action::TurnLeft, GLFW_KEY_A);
+    Input::bindKey(Input::Action::SpeedUp,   GLFW_KEY_W);
+    Input::bindKey(Input::Action::TurnLeft,  GLFW_KEY_A);
     Input::bindKey(Input::Action::SpeedDown, GLFW_KEY_S);
     Input::bindKey(Input::Action::TurnRight, GLFW_KEY_D);
 }

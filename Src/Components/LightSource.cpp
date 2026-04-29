@@ -1,37 +1,40 @@
 #include "Components/LightSource.h"
 
-#include <stdexcept>
-
-#include "GameObject.h" // IWYU pragma: keep
+#include "Utils/Profiling.h"
 
 using namespace component;
 
 LightSource::LightSource(Color ambient, Color diffuse) : ambient_(ambient), diffuse_(diffuse)
 {
-    if (available_lights_.empty())
-    {
-        throw std::runtime_error("no more light source are available");
-    }
+    // if (available_lights_.empty())
+    // {
+    //     throw std::runtime_error("no more light source are available");
+    // }
 
-    light_id_ = *available_lights_.begin();
-    available_lights_.erase(available_lights_.begin());
+    // light_id_ = *available_lights_.begin();
+    // available_lights_.erase(available_lights_.begin());
 
-    glEnable(light_id_);
+    // glEnable(light_id_);
 }
 
 LightSource::~LightSource()
 {
-    glDisable(light_id_);
-    available_lights_.insert(light_id_);
+    // glDisable(light_id_);
+    // available_lights_.insert(light_id_);
 }
 
-bool LightSource::render() const
+void LightSource::render(glm::mat4 &transform) const
 {
-    constexpr const GLfloat light_position[] = {0.0f, 0.0f, 0.0f, 1.0f};
-    glLightfv(light_id_, GL_POSITION, light_position);
+    ProfileScope;
+    ProfileScopeGPU("LightSource::render");
 
-    glLightfv(light_id_, GL_AMBIENT, reinterpret_cast<const GLfloat*>(&ambient_));
-    glLightfv(light_id_, GL_DIFFUSE, reinterpret_cast<const GLfloat*>(&diffuse_));
+    (void)transform;
+
+    // constexpr const GLfloat light_position[] = {0.0f, 0.0f, 0.0f, 1.0f};
+    // glLightfv(light_id_, GL_POSITION, light_position);
+
+    // glLightfv(light_id_, GL_AMBIENT, reinterpret_cast<const GLfloat*>(&ambient_));
+    // glLightfv(light_id_, GL_DIFFUSE, reinterpret_cast<const GLfloat*>(&diffuse_));
 
     // other settings :
     // GL_SPECULAR
@@ -41,6 +44,4 @@ bool LightSource::render() const
     // GL_SPOT_DIRECTION
     // GL_SPOT_EXPONENT
     // GL_SPOT_CUTOFF
-
-    return false;
 }

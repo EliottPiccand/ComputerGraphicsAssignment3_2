@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Lib/OpenGL.h>
+#include <Lib/glm.h>
 
 #include "Components/Component.h"
 
@@ -12,8 +13,8 @@ class Water : public Component
   public:
     Water();
 
-    bool render() const override;
-  
+    void render(glm::mat4 &transform) const override;
+
   private:
     GLuint vertex_array_;
     GLuint vertex_buffer_;
