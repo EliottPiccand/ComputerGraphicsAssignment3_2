@@ -44,6 +44,7 @@
 #include "Utils/Profiling.h"
 #include "Utils/Random.h"
 #include "Utils/Time.h"
+#include "Utils/View.h"
 
 // #define DEBUG_SCENE
 
@@ -112,6 +113,7 @@ constexpr const std::string_view CANNON_BALL_MODEL = "CannonBall/CannonBall.gltf
 constexpr const glm::vec3 CANNON_BALL_MODEL_TRANSLATION = ZERO;
 constexpr const glm::vec3 CANNON_BALL_MODEL_ROTATION = {0.0f, 0.0f, glm::radians(180.0f)};
 constexpr const glm::vec3 CANNON_BALL_MODEL_SCALE = 0.4f * ONE;
+constexpr const float CANNON_BALL_TOP_VIEW_SCALE_FACTOR = 5.0f;
 constexpr const float CANNON_BALL_MASS = 10.0f;
 constexpr const component::Collider::AABB CANNON_BALL_COLLIDER = {
     .half_size = 0.2f * ONE,
@@ -768,6 +770,21 @@ Application::Application() : should_close_(false), free_view_override_(false)
                                                               CANNON_BALL_MODEL_SCALE);
         cannon_ball_model->addComponent<component::ModelInstance>(
             ResourceLoader::getAsset<resource::Model>(CANNON_BALL_MODEL));
+        cannon_ball_model->addComponent<component::Animation>([](float delta_time,
+                                                                 std::shared_ptr<component::Transform> transform,
+                                                                 std::shared_ptr<GameObject> game_object) {
+            (void)delta_time;
+            (void)game_object;
+
+            if (Singleton::view == View::Top)
+            {
+                transform->setScale(CANNON_BALL_TOP_VIEW_SCALE_FACTOR * CANNON_BALL_MODEL_SCALE);
+            }
+            else
+            {
+                transform->setScale(CANNON_BALL_MODEL_SCALE);
+            }
+        });
 
         cannon_ball->addComponent<component::Animation>(CANNON_BALL_SPARK_ANIMATION);
 

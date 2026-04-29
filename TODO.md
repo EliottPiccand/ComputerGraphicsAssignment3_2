@@ -17,7 +17,7 @@
 - ~~collisions~~
 - ~~switch to shaders and remove any trace of OpenGL legacy pipeline~~
 - ~~add rendering style: Wireframe rendering with hidden line removal~~ (no hidden line removal for anything that disable depth test such as particles)
-- find something to make cannon balls visible from top view
+- ~~find something to make cannon balls visible from top view~~
 - fix non textured model rendering
 - update Report images
 - update README

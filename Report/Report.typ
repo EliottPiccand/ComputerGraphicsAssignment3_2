@@ -221,6 +221,9 @@ The maths used to compute the cannon inclination can be found inside `Ballistic.
 Each cannon can fire cannon balls (see @fig:cannon-ball).
 Cannon balls follow a parabolic trajectory (see @fig:cannon-ball-trajectory & @fig:top-view-debug) matching Newton's laws thanks to the physics engine.
 
+Because the top view camera is quite high to be able to see the entire map, the cannon balls are too smalls to be seen in this view.
+Thus, when in top view, each cannon ball model is scales up to be 5 times larger (this is only visual and does not impact the gameplay).
+
 === Collisions
 The game use a lot of collision, for triggers like when a cannon ball hit a ship and also for interaction between ships and walls.
 Different types are implemented:
