@@ -78,7 +78,7 @@
 #show link: underline
 
 = Development environment
-To develop our program, we used VSCodium (with the clangd extension) for code editing, and CMake for compiling. However, instruction to compile with Visual Studio are available in the project `README.md`. To understand the source code, the reader must be familiar with modern C++ features (C++ 23).
+To develop our program, we used VSCodium (with the clangd extension) for code editing, and CMake for compiling. However, instruction to compile with Visual Studio are available in the project `README.md`. To understand the source code, the reader must be familiar with modern C++ features (C++ 23) and OpenGL latest version (4.6).
 
 In addition, we used the #link("https://github.com/wolfpld/tracy")[Tracy] library to profile our game when we faced performances issues. This library was only used during the development and is not needed when compiling the game in Debug or Release mode.
 
@@ -195,7 +195,18 @@ In addition, this part also handle collision detection for triggers, and collisi
 === Particle System
 This system is used extensively in the game to render huge amount of colored points.
 It handle the display part but also the motion of each particle.
+To be able to render a huge amount of particles, we used a combination of 2 methods.
 
+==== Particles Rendering
+Particles are rendered using instanced rendering: the particle model is bound to the shader, then another buffer containing the data of each particle is bound.
+Then, we call `glDrawElementsInstanced()` to draw the same model multiple time, each instance with an different entry of the data buffer.
+
+Moreover, because particles do not need to be a complex 3D model, we simply rendered each particle as a billboard: a plane that always faces the camera.
+
+==== Particles Update
+Because updating tens of thousands of particles on each frame is heavy for the CPU, we used a compute shader to parallelize all those computation.
+Now, the CPU part almost never access the particles' data (only when spawning new particles).
+On each update, the `ParticleSystem` dispatch all the particle motion and killing logic into multiple GPU threads.
 
 == Visual Features
 
@@ -311,6 +322,7 @@ However, because the views instantly swap to the cannon ball's (because of the a
 === Flapping Flag
 Each ship has its topmost flag (see @fig:player-ship-annotated) flapping.
 However, since the health bar is above the ship, this is only visible in cannon/cannon ball view when enemies are close enough, or in free camera view.
+The model actually remains always flat on the memory, the flapping part is handle completely by displacing the vertices inside the vertex shader.
 
 === Water Splash
 When a cannon ball hit the water plane, it spawn an water splash (see @fig:water-splash).
@@ -327,10 +339,6 @@ Whenever the player gets hit, a red vignette effect covers the screen for a smal
 
 === Debug Mode
 Not really a player-oriented feature, but we added a debug mode to the game (it can be toggled by clicking `F3`) to display useful debug information such as:
-- colliders (see @fig:collider-aabb & @fig:collider-convex-polyhedron & @fig:collider-sphere & @fig:rocks-collider);
-- waypoints (see @fig:top-view-debug);
-- cannon ball estimated trajectories (see @fig:cannon-ball-trajectory & @fig:top-view-debug);
-- game's and model's axis (see @fig:axis). This helped a lot to debug model orientation to see their scale and orientation;
 - perspective cameras (see @fig:camera).
 
 = End-user guide

@@ -19,7 +19,7 @@
 - add rendering style: Wireframe rendering with hidden line removal
 - find something to make cannon balls visible from top view
 - fix non textured model rendering
-- update Report
+- update Report images
 - update README
     - Controls
     - Compile info
