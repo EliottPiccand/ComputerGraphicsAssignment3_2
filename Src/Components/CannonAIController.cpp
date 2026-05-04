@@ -11,11 +11,8 @@
 
 using namespace component;
 
-CannonAIController::CannonAIController(std::weak_ptr<Transform> cannon_barrel_transform,
-                                       std::weak_ptr<Transform> target_transform,
-                                       std::weak_ptr<Transform> target_target_transform)
-    : CannonController(cannon_barrel_transform, target_transform), last_fire_tick_(now()),
-      target_target_transform_(target_target_transform)
+CannonAIController::CannonAIController(std::weak_ptr<Transform> cannon_barrel_transform)
+    : CannonController(cannon_barrel_transform)
 {
 }
 
@@ -41,8 +38,6 @@ void CannonAIController::pickTargetTarget()
         target_target_ = Random::random(-WORLD_WIDTH / 2.0f + MARGIN, WORLD_WIDTH / 2.0f - MARGIN) * EAST +
                          Random::random(-WORLD_WIDTH / 2.0f + MARGIN, WORLD_WIDTH / 2.0f - MARGIN) * NORTH;
     } while (glm::length(target_target_ - target_) < MIN_DISTANCE);
-
-    target_target_transform_.lock()->setPosition(target_target_);
 }
 
 void CannonAIController::updateTarget(float delta_time)

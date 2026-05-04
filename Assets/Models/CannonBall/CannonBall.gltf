@@ -282,12 +282,12 @@
 		{
 			"mimeType":"image/png",
 			"name":"CannonBall",
-			"uri":"CannonBall/CannonBallAlbedo.png"
+			"uri":"CannonBall/Albedo.png"
 		},
 		{
 			"mimeType":"image/png",
 			"name":"CannonBall - Metal",
-			"uri":"CannonBall/CannonBallMetallic.png"
+			"uri":"CannonBall/MetallicRoughness.png"
 		}
 	],
 	"accessors":[

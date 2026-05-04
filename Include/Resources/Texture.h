@@ -14,25 +14,29 @@ namespace resource
 class Texture
 {
   public:
-    static inline std::shared_ptr<Texture> MISSING;
+    static inline std::shared_ptr<Texture> MISSING_ALBEDO;
+    static inline std::shared_ptr<Texture> MISSING_METALLIC_ROUGHNESS;
+    static inline std::shared_ptr<Texture> MISSING_NORMAL_MAP;
     static inline constexpr const std::string_view DIRECTORY = "Textures";
 
     enum class Type
     {
         Albedo,
         MetallicRoughness,
-        Normal,
+        NormalMap,
         Emissive,
     };
 
-    Texture(GLuint id);
+    Texture(GLuint id, Type type);
     ~Texture();
 
-    [[nodiscard]] static std::shared_ptr<Texture> loadFromFile(const std::filesystem::path &path);
+    [[nodiscard]] static std::shared_ptr<Texture> load(const std::filesystem::path &path, Type type, bool is_hdr = false);
 
     void bind(GLenum slot, std::shared_ptr<resource::Shader> shader, const char *uniform_slot) const;
+    [[nodiscard]] Type getType() const;
 
   private:
+    const Type type_;
     const GLuint id_;
 };
 

@@ -3,6 +3,9 @@ from pathlib import Path
 BASE_DIR = Path(__file__).parent.parent
 SRC_DIR = BASE_DIR / "Src"
 INCLUDE_DIR = BASE_DIR / "Include"
+EXCLUDED_DIR = [
+    SRC_DIR / "Lib",
+]
 
 errors = []
 changes_made = False
@@ -48,6 +51,9 @@ for header in INCLUDE_DIR.rglob("*.h"):
 
 for impl in SRC_DIR.rglob("*.cpp"):
     if impl.name == "Main.cpp":
+        continue
+
+    if any(impl.is_relative_to(ed) for ed in EXCLUDED_DIR):
         continue
 
     header_name = impl.relative_to(SRC_DIR).with_suffix(".h")

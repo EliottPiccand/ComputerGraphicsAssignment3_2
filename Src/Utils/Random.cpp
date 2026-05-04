@@ -17,6 +17,11 @@ int Random::randint(int min, int max)
     return distribution(generator_);
 }
 
+float Random::radians()
+{
+    return Random::random(0.0f, glm::radians(359.9f));
+};
+
 glm::vec3 Random::direction(const glm::vec3 &along, float spread)
 {
     float angle = Random::random(0.0f, spread);

@@ -14,7 +14,7 @@ namespace component
 class CannonController : public Component
 {
   public:
-    CannonController(std::weak_ptr<Transform> cannon_barrel_transform, std::weak_ptr<Transform> target_transform);
+    CannonController(std::weak_ptr<Transform> cannon_barrel_transform);
     virtual ~CannonController() override = default;
 
     void initialize() override;
@@ -27,7 +27,6 @@ class CannonController : public Component
 
     std::weak_ptr<Transform> transform_;
     std::weak_ptr<Transform> barrel_transform_;
-    std::weak_ptr<Transform> target_transform_;
 
     bool fired_;
     bool aiming_;

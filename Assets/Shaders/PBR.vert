@@ -12,13 +12,13 @@ uniform float u_Time;
 uniform float u_Width;
 #endif
 
-layout(location = 0) out vec3 out_PosVS;
-layout(location = 1) out vec3 out_NormalVS; // VS = in View Space
+layout(location = 0) out vec3 out_Pos;
+layout(location = 1) out vec3 out_Normal;
 layout(location = 2) out vec2 out_UV;
 
 #ifdef FLAP
 
-const float PI = 3.1415926535;
+const float PI = 3.14159265359;
 
 const float WAVE_BASE_AMPLITUDE = 0.25;
 const float WAVE_SECONDARY_AMPLITUDE = 0.08;
@@ -77,7 +77,7 @@ void main()
     vec4 posWorld = u_Model * vec4(pos, 1.0);
 
     gl_Position = u_Projection * u_View * posWorld;
-    out_PosVS = (u_View * posWorld).xyz;
-    out_NormalVS = transpose(inverse(mat3(u_Model))) * normal;
+    out_Pos = posWorld.xyz;
+    out_Normal = normalize(mat3(u_Model) * normal);
     out_UV = in_UV;
 }

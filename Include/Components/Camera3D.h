@@ -71,8 +71,7 @@ class Camera3D : public Component
     static inline float viewport_height;
     static inline double aspect_ratio_;
 
-    static inline resource::Model::TextureOverride effect_;
-    static inline std::weak_ptr<resource::Model> effect_model_;
+    static inline resource::Model::MaterialsOverride effect_;
     static inline Duration effect_duration_;
     static inline Instant effect_start_time_;
     bool display_effects_;

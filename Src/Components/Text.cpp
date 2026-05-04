@@ -17,9 +17,8 @@ void Text::render(glm::mat4 &transform) const
     ProfileScope;
     ProfileScopeGPU("Text::render");
 
-    static std::weak_ptr weak_shader = ResourceLoader::getAsset<resource::Shader>("WorldTexture");
-    static std::weak_ptr model =
-        ResourceLoader::getOrFactoryLoad<resource::Model>("Text", [] { return std::make_tuple(generateQuad()); });
+    static std::weak_ptr weak_shader = ResourceLoader::get<resource::Shader>("WorldTexture");
+    static std::weak_ptr model = ResourceLoader::get<resource::Model>("Text");
 
     auto texture = texture_.lock();
 
@@ -28,5 +27,5 @@ void Text::render(glm::mat4 &transform) const
 
     shader->setUniform("u_Model", transform * glm::scale(glm::vec3{width_, height_, 1.0f}));
     texture->bind(GL_TEXTURE0, shader, "u_Texture");
-    model.lock()->draw(shader, {{0, {{resource::Texture::Type::Albedo, texture}}}});
+    model.lock()->draw(shader);
 }

@@ -15,10 +15,8 @@
 
 using namespace component;
 
-CannonController::CannonController(std::weak_ptr<Transform> cannon_barrel_transform,
-                                   std::weak_ptr<Transform> target_transform)
-    : barrel_transform_(cannon_barrel_transform), target_transform_(target_transform), fired_(false), aiming_(false),
-      recoil_(0.0f)
+CannonController::CannonController(std::weak_ptr<Transform> cannon_barrel_transform)
+    : barrel_transform_(cannon_barrel_transform), fired_(false), aiming_(false), recoil_(0.0f)
 {
 }
 
@@ -73,8 +71,6 @@ void CannonController::update(float delta_time)
 
     updateTarget(delta_time);
 
-    target_transform_.lock()->setPosition(target_);
-
     auto transform = transform_.lock();
     auto barrel_transform = barrel_transform_.lock();
 
@@ -119,9 +115,9 @@ void CannonController::update(float delta_time)
     {
         const auto cannon_ball_position = glm::vec3(barrel_transform->resolve()[3]);
 
-        LOG_TRACE("fire from {:.1f} {:.1f} {:.1f} at {:.1f} {:.1f} {:.1f} m/s by {}", cannon_ball_position.x, cannon_ball_position.y,
-                  cannon_ball_position.z, cannon_ball_initial_velocity_.x, cannon_ball_initial_velocity_.y,
-                  cannon_ball_initial_velocity_.z, shooter_id_);
+        LOG_TRACE("fire from {:.1f} {:.1f} {:.1f} at {:.1f} {:.1f} {:.1f} m/s by {}", cannon_ball_position.x,
+                  cannon_ball_position.y, cannon_ball_position.z, cannon_ball_initial_velocity_.x,
+                  cannon_ball_initial_velocity_.y, cannon_ball_initial_velocity_.z, shooter_id_);
 
         EventQueue::post<event::Fire>(cannon_ball_position, cannon_ball_initial_velocity_, shooter_id_);
 

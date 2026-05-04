@@ -13,13 +13,13 @@ namespace component
 class ModelInstance : public Component
 {
   public:
-    ModelInstance(std::shared_ptr<resource::Model> model, resource::Model::TextureOverride texture_override = {});
+    ModelInstance(std::shared_ptr<resource::Model> model, resource::Model::MaterialsOverride materials_override = {});
 
     void render(glm::mat4 &transform) const override;
 
   private:
     std::shared_ptr<resource::Model> model_;
-    resource::Model::TextureOverride texture_override_;
+    resource::Model::MaterialsOverride materials_override_;
 };
 
 } // namespace component

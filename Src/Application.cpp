@@ -13,13 +13,14 @@
 #include "Components/CannonAIController.h"
 #include "Components/CannonPlayerController.h"
 #include "Components/Collider.h"
+#include "Components/DirectionalLight.h"
 #include "Components/Flag.h"
 #include "Components/HealthBar.h"
-#include "Components/LightSource.h"
 #include "Components/ModelInstance.h"
 #include "Components/RigidBody.h"
 #include "Components/ShipAIController.h"
 #include "Components/ShipPlayerController.h"
+#include "Components/Sky.h"
 #include "Components/Text.h"
 #include "Components/Water.h"
 #include "Events/DamageTaken.h"
@@ -30,8 +31,10 @@
 #include "Events/ShipSunk.h"
 #include "Events/WindowResized.h"
 #include "Input.h"
+#include "Mesh/Vertex/VertexParticle.h"
 #include "ParticleSystem.h"
 #include "Physics.h"
+#include "Resources/ComputeShader.h"
 #include "Resources/Model.h"
 #include "Resources/ResourceLoader.h"
 #include "Resources/Shader.h"
@@ -44,13 +47,11 @@
 #include "Utils/Profiling.h"
 #include "Utils/Random.h"
 #include "Utils/Time.h"
-#include "Utils/View.h"
 
-// #define DEBUG_SCENE
+constexpr const bool DEBUG_SCENE = true;
 
 #pragma region model_settings
 
-constexpr const std::string_view SHIP_MODEL = "Ship/Ship.gltf";
 constexpr const glm::vec3 SHIP_MODEL_TRANSLATION = -0.5f * MODEL_RIGHT;
 constexpr const glm::vec3 SHIP_MODEL_ROTATION = {glm::radians(90.0f), 0.0f, glm::radians(180.0f)};
 constexpr const glm::vec3 SHIP_MODEL_SCALE = 0.5f * ONE;
@@ -92,15 +93,12 @@ const component::Collider::ConvexPolyhedron SHIP_MODEL_COLLIDER = {
 
 constexpr const glm::vec3 SHIP_FLAG_TRANSLATION = MODEL_UP * 17.8f + MODEL_FORWARD * 1.85f;
 constexpr const glm::vec3 SHIP_FLAG_ROTATION = {glm::radians(90.0f), glm::radians(180.0f), glm::radians(90.0f)};
-constexpr const std::string_view PLAYER_SHIP_FLAG = "Ship/SailsRopePlayerAlbedo.png";
 constexpr const std::string_view ENEMY_SHIP_FLAG = "Ship/SailsRopeAlbedo.png";
 
-constexpr const std::string_view CANNON_STAND_MODEL = "CannonStand/CannonStand.gltf";
 constexpr const glm::vec3 CANNON_STAND_MODEL_TRANSLATION = {0.0f, 0.0f, 1.0f};
 constexpr const glm::vec3 CANNON_STAND_MODEL_ROTATION = {glm::radians(90.0f), 0.0f, glm::radians(180.0f)};
 constexpr const glm::vec3 CANNON_STAND_MODEL_SCALE = ONE;
 
-constexpr const std::string_view CANNON_BARREL_MODEL = "CannonBarrel/CannonBarrel.gltf";
 constexpr const glm::vec3 CANNON_BARREL_MODEL_TRANSLATION = ZERO;
 constexpr const glm::vec3 CANNON_BARREL_MODEL_ROTATION = {glm::radians(99.0f), 0.0f, glm::radians(180.0f)};
 constexpr const glm::vec3 CANNON_BARREL_MODEL_SCALE = ONE;
@@ -109,7 +107,6 @@ constexpr const glm::vec3 CANNON_POSITION_IN_SHIP = 9.0f * MODEL_FORWARD + 3.7f 
 constexpr const glm::vec3 CANNON_BARREL_POSITION_IN_CANNON = 1.0f * MODEL_UP;
 constexpr const glm::vec3 CANNON_BARREL_ROTATION_IN_CANNON = {glm::radians(-90.0f), glm::radians(90.0f), 0.0f};
 
-constexpr const std::string_view CANNON_BALL_MODEL = "CannonBall/CannonBall.gltf";
 constexpr const glm::vec3 CANNON_BALL_MODEL_TRANSLATION = ZERO;
 constexpr const glm::vec3 CANNON_BALL_MODEL_ROTATION = {0.0f, 0.0f, glm::radians(180.0f)};
 constexpr const glm::vec3 CANNON_BALL_MODEL_SCALE = 0.4f * ONE;
@@ -120,14 +117,12 @@ constexpr const component::Collider::AABB CANNON_BALL_COLLIDER = {
     .center = ZERO,
 };
 
-constexpr const std::string_view RADAR_CYLINDER_MODEL = "RadarCylinder";
 constexpr const float RADAR_CYLINDER_HEIGHT = 1.0f;
 constexpr const float RADAR_CYLINDER_RAIDUS = 0.2f;
 constexpr const size_t RADAR_CYLINDER_RESOLUTION = 12;
 constexpr const Color RADAR_CYLINDER_COLOR = rgba(72, 43, 5, 1);
 constexpr const glm::vec3 RADAR_CYLINDER_MODEL_TRANSLATION = MODEL_UP * 0.5f;
 
-constexpr const std::string_view RADAR_CONE_MODEL = "RadarCone";
 constexpr const float RADAR_CONE_HEIGHT = 1.0f;
 constexpr const float RADAR_CONE_RAIDUS = 0.3f;
 constexpr const size_t RADAR_CONE_RESOLUTION = 12;
@@ -144,20 +139,14 @@ const component::Animation::Callback RADAR_ANIMATION =
         transform->rotate(ROTATION_SPEED * delta_time, UP);
     };
 
-constexpr const std::string_view ROCK_1_MODEL = "Rocks/Rock1.gltf";
-constexpr const std::string_view ROCK_2_MODEL = "Rocks/Rock2.gltf";
-constexpr const std::string_view ROCK_3_MODEL = "Rocks/Rock3.gltf";
 constexpr const glm::vec3 ROCK_MODEL_TRANSLATION = ZERO;
 constexpr const glm::vec3 ROCK_MODEL_ROTATION = {glm::radians(180.0f), 0.0f, 0.0f};
 constexpr const glm::vec3 ROCK_MODEL_SCALE = ONE;
 
-constexpr const std::string_view VICTORY_MESSAGE = "Messages/Victory.png";
-constexpr const std::string_view DEFEAT_MESSAGE = "Messages/Defeat.png";
 constexpr const float MESSAGE_WIDTH = WORLD_WIDTH * 3.0f / 4.0f;
 constexpr const float MESSAGE_HEIGHT = MESSAGE_WIDTH * 9.0f / 16.0f;
 constexpr const glm::vec3 MESSAGE_POSITION = UP * 60.0f;
 
-constexpr const std::string_view HIT_VIGNETTE = "Effects/HitVignette.png";
 constexpr const Duration HIT_VIGNETTE_DURATION = std::chrono::milliseconds(800);
 
 #pragma endregion model_settings
@@ -177,6 +166,8 @@ static_assert(PERSPECTIVE_FAR > static_cast<double>(WORLD_WIDTH) * std::numbers:
 #pragma endregion camera_settings
 
 #pragma region game_contants
+
+constexpr const float SUN_INTENSITY = 3.0f;
 
 constexpr const size_t ROCKS_PER_WORLD_SIDE = 24;
 constexpr const float WALL_HEIGHT = 4.5f;
@@ -268,397 +259,492 @@ const component::Animation::Callback CANNON_BALL_SPARK_ANIMATION = [](float delt
 
 #pragma endregion particles_settings
 
-#pragma region ship_definition
-
-#define CREATE_SHIP(prefix, texture_override, flag_texture)                                                            \
-    auto prefix##_ship = scene_root_->addChild();                                                                      \
-    auto prefix##_ship_transform = prefix##_ship->addComponent<component::Transform>();                                \
-    auto prefix##_ship_collider = prefix##_ship->addComponent<component::Collider>(SHIP_MODEL_COLLIDER);               \
-    prefix##_ship_collider->setCollisionResolutionMask(glm::vec3(1.0f, 1.0f, 0.0f));                                   \
-    prefix##_ship->addComponent<component::RigidBody>(SHIP_MASS);                                                      \
-                                                                                                                       \
-    auto prefix##_health_bar = scene_root_->addChild();                                                                \
-    std::weak_ptr prefix##_health_bar_weak = prefix##_health_bar;                                                      \
-    auto prefix##_ship_health = prefix##_ship->addComponent<component::Health>(                                        \
-        SHIP_MAX_HIT_POINTS, [prefix##_health_bar_weak](std::shared_ptr<GameObject> game_object) {                     \
-            LOG_DEBUG("ship {} sunk", game_object->getId());                                                           \
-            game_object->visible = false;                                                                              \
-            game_object->active = false;                                                                               \
-            prefix##_health_bar_weak.lock()->active = false;                                                           \
-            prefix##_health_bar_weak.lock()->visible = false;                                                          \
-            EventQueue::post<event::ShipSunk>(game_object->getId());                                                   \
-        });                                                                                                            \
-                                                                                                                       \
-    /* health bar*/                                                                                                    \
-    prefix##_health_bar->addComponent<component::Transform>();                                                         \
-    prefix##_health_bar->addComponent<component::HealthBar>(prefix##_ship_health, prefix##_ship_transform);            \
-                                                                                                                       \
-    /* ship model */                                                                                                   \
-    auto prefix##_ship_model = prefix##_ship->addChild();                                                              \
-    prefix##_ship_model->addComponent<component::Transform>(SHIP_MODEL_TRANSLATION, SHIP_MODEL_ROTATION,               \
-                                                            SHIP_MODEL_SCALE);                                         \
-    prefix##_ship_model->addComponent<component::ModelInstance>(ResourceLoader::getAsset<resource::Model>(SHIP_MODEL), \
-                                                                texture_override);                                     \
-                                                                                                                       \
-    /* flag */                                                                                                         \
-    auto prefix##_flag = prefix##_ship->addChild();                                                                    \
-    prefix##_flag->addComponent<component::Transform>(SHIP_FLAG_TRANSLATION, SHIP_FLAG_ROTATION);                      \
-    prefix##_flag->addComponent<component::Flag>(ResourceLoader::getAsset<resource::Texture>(flag_texture));           \
-                                                                                                                       \
-    /* target (visible in debug mode) */                                                                               \
-    auto prefix##_target = scene_root_->addChild();                                                                    \
-    auto prefix##_target_transform = prefix##_target->addComponent<component::Transform>();                            \
-    prefix##_target                                                                                                    \
-        ->addComponent<component::Collider>(component::Collider::AABB{                                                 \
-            .half_size = 0.5f * ONE,                                                                                   \
-            .center = ZERO,                                                                                            \
-        })                                                                                                             \
-        ->disable();                                                                                                   \
-                                                                                                                       \
-    /* cannon */                                                                                                       \
-    auto prefix##_cannon = prefix##_ship->addChild();                                                                  \
-    prefix##_cannon->addComponent<component::Transform>(CANNON_POSITION_IN_SHIP);                                      \
-                                                                                                                       \
-    /* - stand model */                                                                                                \
-    auto prefix##_cannon_stand_model = prefix##_cannon->addChild();                                                    \
-    prefix##_cannon_stand_model->addComponent<component::Transform>(                                                   \
-        CANNON_STAND_MODEL_TRANSLATION, CANNON_STAND_MODEL_ROTATION, CANNON_STAND_MODEL_SCALE);                        \
-    prefix##_cannon_stand_model->addComponent<component::ModelInstance>(                                               \
-        ResourceLoader::getAsset<resource::Model>(CANNON_STAND_MODEL));                                                \
-                                                                                                                       \
-    /* - barrel container */                                                                                           \
-    auto prefix##_barrel_container = prefix##_cannon->addChild();                                                      \
-    prefix##_barrel_container->addComponent<component::Transform>(CANNON_BARREL_POSITION_IN_CANNON,                    \
-                                                                  CANNON_BARREL_ROTATION_IN_CANNON);                   \
-                                                                                                                       \
-    /* - barrel */                                                                                                     \
-    auto prefix##_cannon_barrel = prefix##_barrel_container->addChild();                                               \
-    auto prefix##_cannon_barrel_transform = prefix##_cannon_barrel->addComponent<component::Transform>();              \
-    prefix##_cannon_barrel_transform->pointToward(EAST);                                                               \
-                                                                                                                       \
-    /* - barrel model */                                                                                               \
-    auto prefix##_cannon_barrel_model = prefix##_cannon_barrel->addChild();                                            \
-    prefix##_cannon_barrel_model->addComponent<component::Transform>(                                                  \
-        CANNON_BARREL_MODEL_TRANSLATION, CANNON_BARREL_MODEL_ROTATION, CANNON_BARREL_MODEL_SCALE);                     \
-    prefix##_cannon_barrel_model->addComponent<component::ModelInstance>(                                              \
-        ResourceLoader::getAsset<resource::Model>(CANNON_BARREL_MODEL));                                               \
-                                                                                                                       \
-    /* radar */                                                                                                        \
-    auto prefix##_radar = prefix##_ship->addChild();                                                                   \
-    prefix##_radar->addComponent<component::Transform>(RADAR_POSITION);                                                \
-    prefix##_radar->addComponent<component::Animation>(RADAR_ANIMATION);                                               \
-                                                                                                                       \
-    /* - cylinder */                                                                                                   \
-    auto prefix##_radar_cylinder = prefix##_radar->addChild();                                                         \
-    prefix##_radar_cylinder->addComponent<component::Transform>(RADAR_CYLINDER_MODEL_TRANSLATION);                     \
-    prefix##_radar_cylinder->addComponent<component::ModelInstance>(                                                   \
-        ResourceLoader::get<resource::Model>(std::string(RADAR_CYLINDER_MODEL)));                                      \
-                                                                                                                       \
-    /* - cone */                                                                                                       \
-    auto prefix##_radar_cone = prefix##_radar->addChild();                                                             \
-    prefix##_radar_cone->addComponent<component::Transform>(RADAR_CONE_MODEL_POSITION, RADAR_CONE_MODEL_ROTATION);     \
-    prefix##_radar_cone->addComponent<component::ModelInstance>(                                                       \
-        ResourceLoader::get<resource::Model>(std::string(RADAR_CONE_MODEL)))
-
-#pragma endregion ship_definition
-
 Application::Application() : should_close_(false), free_view_override_(false)
 {
     ProfileScope;
 
     Random::initialize();
 
+    /******************************************************************************/
+    /*                              Window & OpenGL                               */
+    /******************************************************************************/
+
     window_ = std::make_unique<Window>();
     initializeOpenGL();
-    EventQueue::registerCallback<event::WindowResized>([](const event::WindowResized &event) {
-        glViewport(0, 0, static_cast<GLsizei>(event.width), static_cast<GLsizei>(event.height));
-    });
+
+    /******************************************************************************/
+    /*                                   Inputs                                   */
+    /******************************************************************************/
 
     Input::initialize(*window_);
-    Input::bindKey(Input::Action::ToggleFullScreen, GLFW_KEY_F11);
-    Input::bindMouseButton(Input::Action::UIClick, GLFW_MOUSE_BUTTON_1);
-    Input::bindKey(Input::Action::ToggleFreeView, GLFW_KEY_ENTER);
-    Input::bindKey(Input::Action::CycleRenderingStyles, GLFW_KEY_R);
-    Input::bindKey(Input::Action::ToggleDebugMode, GLFW_KEY_F3);
-    Input::bindKey(Input::Action::DebugMoveTargetNorth, GLFW_KEY_UP);
-    Input::bindKey(Input::Action::DebugMoveTargetEast, GLFW_KEY_RIGHT);
-    Input::bindKey(Input::Action::DebugMoveTargetSouth, GLFW_KEY_DOWN);
-    Input::bindKey(Input::Action::DebugMoveTargetWest, GLFW_KEY_LEFT);
-    Input::bindKey(Input::Action::DebugAimAndFire, GLFW_KEY_F);
-    Input::bindKey(Input::Action::CycleCameras, GLFW_KEY_V);
-    Input::bindKey(Input::Action::TogglePhysics, GLFW_KEY_P);
-    Input::bindKey(Input::Action::RestartGame, GLFW_KEY_G);
-    Input::bindKey(Input::Action::QuitGame, GLFW_KEY_ESCAPE);
 
-    // Load shaders
-    LOG_INFO("compiling shaders...");
-    component::Camera3D::initialize({
-        ResourceLoader::getAsset<resource::Shader>("PBR"),
-        ResourceLoader::getAsset<resource::Shader>("PBR#FLAP"),
-        ResourceLoader::getAsset<resource::Shader>("WorldColor"),
-        ResourceLoader::getAsset<resource::Shader>("WorldTexture"),
-        ResourceLoader::getAsset<resource::Shader>("Water"),
-        ResourceLoader::getAsset<resource::Shader>("Particle"),
+    // clang-format off
+    Input::bindMouseButton(Input::Action::UIClick,      GLFW_MOUSE_BUTTON_1);
+    Input::bindKey(Input::Action::ToggleFullScreen,     GLFW_KEY_F11       );
+    Input::bindKey(Input::Action::ToggleFreeView,       GLFW_KEY_ENTER     );
+    Input::bindKey(Input::Action::CycleRenderingStyles, GLFW_KEY_R         );
+    Input::bindKey(Input::Action::ToggleDebugMode,      GLFW_KEY_F3        );
+    Input::bindKey(Input::Action::DebugMoveTargetNorth, GLFW_KEY_UP        );
+    Input::bindKey(Input::Action::DebugMoveTargetEast,  GLFW_KEY_RIGHT     );
+    Input::bindKey(Input::Action::DebugMoveTargetSouth, GLFW_KEY_DOWN      );
+    Input::bindKey(Input::Action::DebugMoveTargetWest,  GLFW_KEY_LEFT      );
+    Input::bindKey(Input::Action::DebugAimAndFire,      GLFW_KEY_F         );
+    Input::bindKey(Input::Action::CycleCameras,         GLFW_KEY_V         );
+    Input::bindKey(Input::Action::TogglePhysics,        GLFW_KEY_P         );
+    Input::bindKey(Input::Action::RestartGame,          GLFW_KEY_G         );
+    Input::bindKey(Input::Action::QuitGame,             GLFW_KEY_ESCAPE    );
+
+    /******************************************************************************/
+    /*                                   Shaders                                  */
+    /******************************************************************************/
+    
+    LOG_INFO("compiling shaders");
+    
+    ResourceLoader::load<resource::Shader>("Sky",          "Sky.vert",          "Sky.frag");
+    ResourceLoader::load<resource::Shader>("EquirectToCubemap", "IBLCubeCapture.vert", "EquirectToCubemap.frag");
+    ResourceLoader::load<resource::Shader>("IrradianceConvolution", "IBLCubeCapture.vert", "IrradianceConvolution.frag");
+    ResourceLoader::load<resource::Shader>("PrefilterEnv", "IBLCubeCapture.vert", "PrefilterEnv.frag");
+    ResourceLoader::load<resource::Shader>("BrdfIntegration", "BrdfLut.vert", "BrdfLut.frag");
+    ResourceLoader::load<resource::Shader>("PBR",          "PBR.vert",          "PBR.frag", resource::Shader::Defines{
+        {std::string_view("MAX_DIRECTIONAL_LIGHTS"), std::optional(std::to_string(component::DirectionalLight::MAX_DIRECTIONAL_LIGHTS))},
     });
-    ResourceLoader::getAsset<resource::Shader>("UI");
+    ResourceLoader::load<resource::Shader>("PBR#FLAP",     "PBR.vert",          "PBR.frag", resource::Shader::Defines{
+        {std::string_view("MAX_DIRECTIONAL_LIGHTS"), std::optional(std::to_string(component::DirectionalLight::MAX_DIRECTIONAL_LIGHTS))},
+        {std::string_view("FLAP"), std::nullopt},
+    });
+    ResourceLoader::load<resource::Shader>("WorldColor",   "WorldColor.vert",   "WorldColor.frag"  );
+    ResourceLoader::load<resource::Shader>("WorldTexture", "WorldTexture.vert", "WorldTexture.frag");
+    ResourceLoader::load<resource::Shader>("Water",        "Water.vert",        "Water.frag"       );
+    ResourceLoader::load<resource::Shader>("Particle",     "Particle.vert",     "Particle.frag"    );
+    ResourceLoader::load<resource::Shader>("UI",           "UI.vert",           "UI.frag"          );
+    
+    ResourceLoader::load<resource::ComputeShader>("Particle", "Particle.comp");
 
+    /******************************************************************************/
+    /*                                  Textures                                  */
+    /******************************************************************************/
+    
+    LOG_INFO("loading assets");
+    
+    ResourceLoader::load<resource::Texture>("MissingAlbedo",              "MissingAlbedo.png",              resource::Texture::Type::Albedo                 );
+    ResourceLoader::load<resource::Texture>("MissingMetallicRoughness",   "MissingMetallicRoughness.png",   resource::Texture::Type::MetallicRoughness      );
+    ResourceLoader::load<resource::Texture>("MissingNormalMap",           "MissingNormalMap.png",           resource::Texture::Type::NormalMap              );
+    ResourceLoader::load<resource::Texture>("Sky/Daytime.hdr",            "Sky/Daytime.hdr",                resource::Texture::Type::Albedo,            true);
+    ResourceLoader::load<resource::Texture>("Ship/PlayerVariant",         "Ship/SailsRopePlayerAlbedo.png", resource::Texture::Type::Albedo                 );
+    ResourceLoader::load<resource::Texture>("Effect/HitVignette",         "Effects/HitVignette.png",        resource::Texture::Type::Albedo                 );
+    ResourceLoader::load<resource::Texture>("Message/Victory",            "Messages/Victory.png",           resource::Texture::Type::Albedo                 );
+    ResourceLoader::load<resource::Texture>("Message/Defeat",             "Messages/Defeat.png",            resource::Texture::Type::Albedo                 );
+
+    /******************************************************************************/
+    /*                                   Models                                   */
+    /******************************************************************************/
+    
+    LOG_INFO("loading 3d models");
+
+    ResourceLoader::load<resource::Model>("CannonBall",    "CannonBall/CannonBall.gltf"    );
+    ResourceLoader::load<resource::Model>("Rocks/1",       "Rocks/Rock1.gltf"              );
+    ResourceLoader::load<resource::Model>("Rocks/2",       "Rocks/Rock2.gltf"              );
+    ResourceLoader::load<resource::Model>("Rocks/3",       "Rocks/Rock3.gltf"              );
+    ResourceLoader::load<resource::Model>("Ship",          "Ship/Ship.gltf"                );
+    ResourceLoader::load<resource::Model>("Cannon/Stand",  "CannonStand/CannonStand.gltf"  );
+    ResourceLoader::load<resource::Model>("Cannon/Barrel", "CannonBarrel/CannonBarrel.gltf");
+    
+    ResourceLoader::load<resource::Model>("Effect", generateQuad());
+    ResourceLoader::load<resource::Model>("Radar/Cylinder",
+        generateCylinder(RADAR_CYLINDER_HEIGHT, RADAR_CYLINDER_RAIDUS, RADAR_CYLINDER_RESOLUTION),
+        RADAR_CYLINDER_COLOR
+    );
+    ResourceLoader::load<resource::Model>("Radar/Cone",
+        generateCone(RADAR_CONE_HEIGHT, RADAR_CONE_RAIDUS, RADAR_CONE_RESOLUTION),
+        RADAR_CONE_COLOR
+    );
+    ResourceLoader::load<resource::Model>("Flag", [] {
+        constexpr const size_t STRIPS = 16;
+        constexpr const float HEIGHT = 1.75f;
+        constexpr const float UV_TOP = 0.61816f;
+        constexpr const float UV_LEFT = 0.17480f;
+        constexpr const float UV_BOTTOM = 0.77689f;
+        constexpr const float UV_RIGHT = 0.34326f;
+        return generateFlag(STRIPS, component::Flag::WIDTH, HEIGHT, UV_TOP, UV_LEFT, UV_BOTTOM, UV_RIGHT);
+    }());
+    ResourceLoader::load<resource::Model>("Particle", [] {
+        const std::vector<VertexParticle> vertices = {
+            {
+                .position = {0.0f, 0.5f},
+            },
+            {
+                .position = {-0.5f, 0.0f},
+            },
+            {
+                .position = {0.5f, 0.0f},
+            },
+            {
+                .position = {0.0f, -0.5f},
+            },
+        };
+
+        const std::vector<IndexType> indices = {
+            1, 0, 2,
+            1, 2, 3,
+        };
+
+        return Mesh{vertices, indices};
+    }());
+    ResourceLoader::load<resource::Model>("HealBar", generateQuad());
+    ResourceLoader::load<resource::Model>("Text", generateQuad());
+    ResourceLoader::load<resource::Model>("SkyCube", [] {
+        constexpr const float HALF_SIZE = 0.5f;
+
+        const std::vector<VertexDebug> vertices = {
+            {{-HALF_SIZE, -HALF_SIZE, -HALF_SIZE}}, {{+HALF_SIZE, -HALF_SIZE, -HALF_SIZE}},
+            {{+HALF_SIZE, +HALF_SIZE, -HALF_SIZE}}, {{-HALF_SIZE, +HALF_SIZE, -HALF_SIZE}},
+            {{-HALF_SIZE, -HALF_SIZE, +HALF_SIZE}}, {{+HALF_SIZE, -HALF_SIZE, +HALF_SIZE}},
+            {{+HALF_SIZE, +HALF_SIZE, +HALF_SIZE}}, {{-HALF_SIZE, +HALF_SIZE, +HALF_SIZE}},
+        };
+
+        const std::vector<IndexType> indices = {
+            0, 1, 2, 0, 2, 3, // back
+            4, 6, 5, 4, 7, 6, // front
+            0, 4, 5, 0, 5, 1, // bottom
+            3, 2, 6, 3, 6, 7, // top
+            1, 5, 6, 1, 6, 2, // right
+            0, 3, 7, 0, 7, 4, // left
+        };
+
+        return Mesh{vertices, indices};
+    }());
+
+    /******************************************************************************/
+    /*                               Initialization                               */
+    /******************************************************************************/
+
+    LOG_INFO("initializing");
+
+    LOG_DEBUG("cannon_balls initial velocity: {} m/s", INITIAL_CANNON_BALL_VELOCITY);
+
+    resource::Texture::MISSING_ALBEDO             = ResourceLoader::get<resource::Texture>("MissingAlbedo");
+    resource::Texture::MISSING_METALLIC_ROUGHNESS = ResourceLoader::get<resource::Texture>("MissingMetallicRoughness");
+    resource::Texture::MISSING_NORMAL_MAP         = ResourceLoader::get<resource::Texture>("MissingNormalMap");
+
+    component::Camera3D::initialize({
+        ResourceLoader::get<resource::Shader>("PBR"),
+        ResourceLoader::get<resource::Shader>("PBR#FLAP"),
+        ResourceLoader::get<resource::Shader>("WorldColor"),
+        ResourceLoader::get<resource::Shader>("WorldTexture"),
+        ResourceLoader::get<resource::Shader>("Water"),
+        ResourceLoader::get<resource::Shader>("Particle"),
+        ResourceLoader::get<resource::Shader>("Sky"),
+    });
+    component::DirectionalLight::initialize({
+        ResourceLoader::get<resource::Shader>("PBR"),
+        ResourceLoader::get<resource::Shader>("PBR#FLAP"),
+    });
     ParticleSystem::initialize();
 
-    // load assets
-    LOG_INFO("loading assets...");
-    resource::Texture::MISSING = ResourceLoader::getAsset<resource::Texture>("Missing.png");
-
-    const resource::Model::TextureOverride PLAYER_SHIP_TEXTURE_OVERRIDE = {
+    const resource::Model::MaterialsOverride PLAYER_SHIP_MATERIALS_OVERRIDE = {
         {
             0,
             {
-                {resource::Texture::Type::Albedo,
-                 ResourceLoader::getAsset<resource::Texture>("Ship/SailsRopePlayerAlbedo.png")},
-                {resource::Texture::Type::Emissive, nullptr},
+                .albedo_texture = ResourceLoader::get<resource::Texture>("Ship/PlayerVariant"),
+                .emissive_color = color::TRANSPARENT,
             },
         },
     };
+    const resource::Model::MaterialsOverride ENEMY_SHIP_MATERIALS_OVERRIDE = {};
 
-    ResourceLoader::getAsset<resource::Model>(CANNON_BALL_MODEL);
+    main_view_ = View::Top;
+    Singleton::view = main_view_;
 
-    ResourceLoader::load<resource::Model>(
-        std::string(RADAR_CYLINDER_MODEL),
-        generateCylinder(RADAR_CYLINDER_HEIGHT, RADAR_CYLINDER_RAIDUS, RADAR_CYLINDER_RESOLUTION),
-        RADAR_CYLINDER_COLOR);
-    ResourceLoader::load<resource::Model>(std::string(RADAR_CONE_MODEL),
-                                          generateCone(RADAR_CONE_HEIGHT, RADAR_CONE_RAIDUS, RADAR_CONE_RESOLUTION),
-                                          RADAR_CONE_COLOR);
+    /******************************************************************************/
+    /*                                   Scene                                    */
+    /******************************************************************************/
 
-    ResourceLoader::getAsset<resource::Texture>(HIT_VIGNETTE);
+    std::shared_ptr<GameObject> water;
+    [&] {
+        scene_root_ = std::make_shared<GameObject>();
+        scene_root_->addComponent<component::Transform>();
+        scene_root_->addComponent<component::Sky>(ResourceLoader::get<resource::Texture>("Sky/Daytime.hdr"));
+        scene_root_->addComponent<component::DirectionalLight>(
+            glm::normalize(2.0f * DOWN + WEST + SOUTH),
+            color::SUN,
+            SUN_INTENSITY);
+        Singleton::scene_root = scene_root_;
 
-#pragma region scene
+        // - Free View Camera
+        auto perspective_camera = scene_root_->addChild();
+        perspective_camera->addComponent<component::Transform>(glm::vec3{5.0f, 5.0f, 5.0f});
+        free_view_camera_ = perspective_camera->addComponent<component::Camera3D>(
+            component::Camera3D::Perspective{
+                .fov = FOV,
+                .near = PERSPECTIVE_NEAR,
+                .far = PERSPECTIVE_FAR,
+            },
+            EAST, false);
+        free_view_controls_ = perspective_camera->addComponent<component::FreeViewControls>();
 
-    scene_root_ = std::make_shared<GameObject>();
-    scene_root_->addComponent<component::Transform>();
-    Singleton::scene_root = scene_root_;
+        // - Top View Camera
+        auto top_view_camera = scene_root_->addChild();
+        top_view_camera->addComponent<component::Transform>(UP * 80.0f - NORTH * 1.0f);
+        top_view_camera_ = top_view_camera->addComponent<component::Camera3D>(
+            component::Camera3D::Orthographic{
+                .scale = 100,
+                .near = 10.0,
+                .far = 100.0,
+            },
+            glm::normalize(DOWN + NORTH * 0.01f));
 
-    // - Free View Camera
-    auto perspective_camera = scene_root_->addChild();
-    perspective_camera->addComponent<component::Transform>(glm::vec3{5.0f, 5.0f, 5.0f});
-    free_view_camera_ = perspective_camera->addComponent<component::Camera3D>(
-        component::Camera3D::Perspective{
-            .fov = FOV,
-            .near = PERSPECTIVE_NEAR,
-            .far = PERSPECTIVE_FAR,
-        },
-        EAST, false);
-    free_view_controls_ = perspective_camera->addComponent<component::FreeViewControls>();
-
-    // - Top View Camera
-    auto top_view_camera = scene_root_->addChild();
-    top_view_camera->addComponent<component::Transform>(UP * 80.0f - NORTH * 1.0f);
-    top_view_camera_ = top_view_camera->addComponent<component::Camera3D>(
-        component::Camera3D::Orthographic{
-            .scale = 100,
-            .near = 10.0,
-            .far = 100.0,
-        },
-        glm::normalize(DOWN + NORTH * 0.01f));
-
-    // - Sun
-    auto sun = scene_root_->addChild();
-    sun->addComponent<component::Transform>(UP * 100.0f - NORTH * 30.0f);
-    sun->addComponent<component::LightSource>(rgba(252, 231, 165, 1), rgb(255, 255, 255));
-
-#if defined(DEBUG_SCENE)
-    // Ship
-    auto ship = scene_root_->addChild();
-    ship->addComponent<component::Transform>();
-
-    auto ship_model = ship->addChild();
-    ship_model->addComponent<component::Transform>(SHIP_MODEL_TRANSLATION, SHIP_MODEL_ROTATION, SHIP_MODEL_SCALE);
-    ship_model->addComponent<component::ModelInstance>(ResourceLoader::getAsset<resource::Model>(SHIP_MODEL));
-
-    // Cannon Stand
-    auto cannon_stand = scene_root_->addChild();
-    cannon_stand->addComponent<component::Transform>(EAST * 10.0f);
-
-    auto cannon_stand_model = cannon_stand->addChild();
-    cannon_stand_model->addComponent<component::Transform>(CANNON_STAND_MODEL_TRANSLATION, CANNON_STAND_MODEL_ROTATION,
-                                                           CANNON_STAND_MODEL_SCALE);
-    cannon_stand_model->addComponent<component::ModelInstance>(
-        ResourceLoader::getAsset<resource::Model>(CANNON_STAND_MODEL));
-
-    // Cannon Barrel
-    auto cannon_barrel = scene_root_->addChild();
-    cannon_barrel->addComponent<component::Transform>(EAST * 15.0f);
-
-    auto cannon_barrel_model = cannon_barrel->addChild();
-    cannon_barrel_model->addComponent<component::Transform>(CANNON_BARREL_MODEL_TRANSLATION,
-                                                            CANNON_BARREL_MODEL_ROTATION, CANNON_BARREL_MODEL_SCALE);
-    cannon_barrel_model->addComponent<component::ModelInstance>(
-        ResourceLoader::getAsset<resource::Model>(CANNON_BARREL_MODEL));
-
-    // Cannon Ball
-    auto cannon_ball = scene_root_->addChild();
-    cannon_ball->addComponent<component::Transform>(EAST * 20.0f);
-
-    auto cannon_ball_model = cannon_ball->addChild();
-    cannon_ball_model->addComponent<component::Transform>(CANNON_BALL_MODEL_TRANSLATION, CANNON_BALL_MODEL_ROTATION,
-                                                          CANNON_BALL_MODEL_SCALE);
-    cannon_ball_model->addComponent<component::ModelInstance>(
-        ResourceLoader::getAsset<resource::Model>(CANNON_BALL_MODEL));
-
-    // Rock 1
-    auto rock_1 = scene_root_->addChild();
-    rock_1->addComponent<component::Transform>(EAST * 30.0f);
-
-    auto rock_1_model = rock_1->addChild();
-    rock_1_model->addComponent<component::Transform>(ROCK_MODEL_TRANSLATION, ROCK_MODEL_ROTATION, ROCK_MODEL_SCALE);
-    rock_1_model->addComponent<component::ModelInstance>(ResourceLoader::getAsset<resource::Model>(ROCK_1_MODEL));
-
-    // Rock 2
-    auto rock_2 = scene_root_->addChild();
-    rock_2->addComponent<component::Transform>(EAST * 40.0f);
-
-    auto rock_2_model = rock_2->addChild();
-    rock_2_model->addComponent<component::Transform>(ROCK_MODEL_TRANSLATION, ROCK_MODEL_ROTATION, ROCK_MODEL_SCALE);
-    rock_2_model->addComponent<component::ModelInstance>(ResourceLoader::getAsset<resource::Model>(ROCK_2_MODEL));
-
-    // Rock 3
-    auto rock_3 = scene_root_->addChild();
-    rock_3->addComponent<component::Transform>(EAST * 55.0f);
-
-    auto rock_3_model = rock_3->addChild();
-    rock_3_model->addComponent<component::Transform>(ROCK_MODEL_TRANSLATION, ROCK_MODEL_ROTATION, ROCK_MODEL_SCALE);
-    rock_3_model->addComponent<component::ModelInstance>(ResourceLoader::getAsset<resource::Model>(ROCK_3_MODEL));
-
-#else
-    // - World border
-    std::vector<std::shared_ptr<resource::Model>> rocks = {
-        ResourceLoader::getAsset<resource::Model>(ROCK_1_MODEL),
-        ResourceLoader::getAsset<resource::Model>(ROCK_2_MODEL),
-        ResourceLoader::getAsset<resource::Model>(ROCK_3_MODEL),
-    };
-
-    for (size_t i = 0; i < 4; ++i)
-    {
-        bool along_north = (i & 2);
-        bool potitive = (i & 1);
-
-        auto wall = scene_root_->addChild();
-        wall->addComponent<component::Transform>((WORLD_WIDTH / 2.0f - WALL_INSET) * (potitive ? 1.0f : -1.0f) *
-                                                 (along_north ? NORTH : EAST));
-        wall->addComponent<component::Collider>(component::Collider::AABB{
-            .half_size = WALL_HEIGHT / 2.0f * UP + WORLD_WIDTH / 2.0f * (along_north ? EAST : NORTH) +
-                         0.5f * (along_north ? NORTH : EAST),
-            .center = WALL_HEIGHT / 2.0f * UP,
-        });
-        wall->addComponent<component::RigidBody>();
-
-        for (size_t j = 0; j < ROCKS_PER_WORLD_SIDE; ++j)
+        if constexpr (DEBUG_SCENE)
         {
-            const float c1 =
-                WORLD_WIDTH * (static_cast<float>(j) / static_cast<float>(ROCKS_PER_WORLD_SIDE - 1) - 0.5f);
-            const float c2 = WORLD_WIDTH / 2.0f;
-            const float east = (potitive ? 1.0f : -1.0f) * (along_north ? c1 : c2);
-            const float north = (potitive ? 1.0f : -1.0f) * (along_north ? c2 : c1);
+            // Ship
+            auto ship = scene_root_->addChild();
+            ship->addComponent<component::Transform>();
 
-            std::shared_ptr<resource::Model> random_rock_model = Random::range<decltype(random_rock_model)>(rocks);
-            const float angle = Random::random(0.0f, glm::radians(359.9f));
+            auto ship_model = ship->addChild();
+            ship_model->addComponent<component::Transform>(SHIP_MODEL_TRANSLATION, SHIP_MODEL_ROTATION, SHIP_MODEL_SCALE);
+            ship_model->addComponent<component::ModelInstance>(ResourceLoader::get<resource::Model>("Ship"));
 
-            auto rock = scene_root_->addChild();
-            rock->addComponent<component::Transform>(east * EAST + north * NORTH, angle * UP);
+            // Cannon Stand
+            auto cannon_stand = scene_root_->addChild();
+            cannon_stand->addComponent<component::Transform>(EAST * 10.0f);
 
-            auto rock_model = rock->addChild();
-            rock_model->addComponent<component::Transform>(ROCK_MODEL_TRANSLATION, ROCK_MODEL_ROTATION,
-                                                           ROCK_MODEL_SCALE);
-            rock_model->addComponent<component::ModelInstance>(random_rock_model);
+            auto cannon_stand_model = cannon_stand->addChild();
+            cannon_stand_model->addComponent<component::Transform>(CANNON_STAND_MODEL_TRANSLATION, CANNON_STAND_MODEL_ROTATION, CANNON_STAND_MODEL_SCALE);
+            cannon_stand_model->addComponent<component::ModelInstance>(ResourceLoader::get<resource::Model>("Cannon/Stand"));
+
+            // Cannon Barrel
+            auto cannon_barrel = scene_root_->addChild();
+            cannon_barrel->addComponent<component::Transform>(EAST * 15.0f);
+
+            auto cannon_barrel_model = cannon_barrel->addChild();
+            cannon_barrel_model->addComponent<component::Transform>(CANNON_BARREL_MODEL_TRANSLATION, CANNON_BARREL_MODEL_ROTATION, CANNON_BARREL_MODEL_SCALE);
+            cannon_barrel_model->addComponent<component::ModelInstance>(ResourceLoader::get<resource::Model>("Cannon/Barrel"));
+
+            // Cannon Ball
+            auto cannon_ball = scene_root_->addChild();
+            cannon_ball->addComponent<component::Transform>(EAST * 20.0f);
+
+            auto cannon_ball_model = cannon_ball->addChild();
+            cannon_ball_model->addComponent<component::Transform>(CANNON_BALL_MODEL_TRANSLATION, CANNON_BALL_MODEL_ROTATION, CANNON_BALL_MODEL_SCALE);
+            cannon_ball_model->addComponent<component::ModelInstance>(ResourceLoader::get<resource::Model>("CannonBall"));
+
+            // Rock 1
+            auto rock_1 = scene_root_->addChild();
+            rock_1->addComponent<component::Transform>(EAST * 30.0f);
+
+            auto rock_1_model = rock_1->addChild();
+            rock_1_model->addComponent<component::Transform>(ROCK_MODEL_TRANSLATION, ROCK_MODEL_ROTATION, ROCK_MODEL_SCALE);
+            rock_1_model->addComponent<component::ModelInstance>(ResourceLoader::get<resource::Model>("Rocks/1"));
+
+            // Rock 2
+            auto rock_2 = scene_root_->addChild();
+            rock_2->addComponent<component::Transform>(EAST * 40.0f);
+
+            auto rock_2_model = rock_2->addChild();
+            rock_2_model->addComponent<component::Transform>(ROCK_MODEL_TRANSLATION, ROCK_MODEL_ROTATION, ROCK_MODEL_SCALE);
+            rock_2_model->addComponent<component::ModelInstance>(ResourceLoader::get<resource::Model>("Rocks/2"));
+
+            // Rock 3
+            auto rock_3 = scene_root_->addChild();
+            rock_3->addComponent<component::Transform>(EAST * 55.0f);
+
+            auto rock_3_model = rock_3->addChild();
+            rock_3_model->addComponent<component::Transform>(ROCK_MODEL_TRANSLATION, ROCK_MODEL_ROTATION, ROCK_MODEL_SCALE);
+            rock_3_model->addComponent<component::ModelInstance>(ResourceLoader::get<resource::Model>("Rocks/3"));
         }
-    }
+        else
+        {
+            const auto addShip = [&](resource::Model::MaterialsOverride materials_override, std::string_view flag_texture_name) {
+                auto ship = scene_root_->addChild();
+                auto ship_transform = ship->addComponent<component::Transform>();
+                auto ship_collider = ship->addComponent<component::Collider>(SHIP_MODEL_COLLIDER);
+                ship_collider->setCollisionResolutionMask({1.0f, 1.0f, 0.0f});
+                ship->addComponent<component::RigidBody>(SHIP_MASS);
+                                                                                                                    
+                auto health_bar = scene_root_->addChild();
+                std::weak_ptr health_bar_weak = health_bar;
+                auto ship_health = ship->addComponent<component::Health>(
+                    SHIP_MAX_HIT_POINTS, [health_bar_weak](std::shared_ptr<GameObject> game_object) {
+                        LOG_DEBUG("ship {} sunk", game_object->getId());
+                        game_object->visible = false;
+                        game_object->active = false;
+                        health_bar_weak.lock()->active = false;
+                        health_bar_weak.lock()->visible = false;
+                        EventQueue::post<event::ShipSunk>(game_object->getId());
+                    });
+                                                                                                                    
+                /* health bar*/
+                health_bar->addComponent<component::Transform>();
+                health_bar->addComponent<component::HealthBar>(ship_health, ship_transform);
+                                                                                                                    
+                /* ship model */
+                auto ship_model = ship->addChild();
+                ship_model->addComponent<component::Transform>(SHIP_MODEL_TRANSLATION, SHIP_MODEL_ROTATION, SHIP_MODEL_SCALE);
+                ship_model->addComponent<component::ModelInstance>(ResourceLoader::get<resource::Model>("Ship"), materials_override);                    
 
-    // - Player
-    CREATE_SHIP(player, PLAYER_SHIP_TEXTURE_OVERRIDE, PLAYER_SHIP_FLAG);
-    ships_and_health_bars_.push_back({player_ship, player_health_bar});
+                /* flag */
+                auto flag = ship->addChild();
+                flag->addComponent<component::Transform>(SHIP_FLAG_TRANSLATION, SHIP_FLAG_ROTATION);
+                flag->addComponent<component::Flag>(ResourceLoader::get<resource::Texture>(flag_texture_name));
+                                                                                                                    
+                /* cannon */
+                auto cannon = ship->addChild();
+                cannon->addComponent<component::Transform>(CANNON_POSITION_IN_SHIP);
+                                                                                                                    
+                /* - stand model */
+                auto cannon_stand_model = cannon->addChild();
+                cannon_stand_model->addComponent<component::Transform>(CANNON_STAND_MODEL_TRANSLATION, CANNON_STAND_MODEL_ROTATION, CANNON_STAND_MODEL_SCALE);
+                cannon_stand_model->addComponent<component::ModelInstance>(ResourceLoader::get<resource::Model>("Cannon/Stand"));
+                                                                                                                    
+                /* - barrel container */
+                auto barrel_container = cannon->addChild();
+                barrel_container->addComponent<component::Transform>(CANNON_BARREL_POSITION_IN_CANNON, CANNON_BARREL_ROTATION_IN_CANNON);
+                                                                                                                    
+                /* - - barrel */
+                auto cannon_barrel = barrel_container->addChild();
+                auto cannon_barrel_transform = cannon_barrel->addComponent<component::Transform>();
+                cannon_barrel_transform->pointToward(EAST);
+                                                                                                                    
+                /* - - - barrel model */
+                auto cannon_barrel_model = cannon_barrel->addChild();
+                cannon_barrel_model->addComponent<component::Transform>(CANNON_BARREL_MODEL_TRANSLATION, CANNON_BARREL_MODEL_ROTATION, CANNON_BARREL_MODEL_SCALE);
+                cannon_barrel_model->addComponent<component::ModelInstance>(ResourceLoader::get<resource::Model>("Cannon/Barrel"));
+                                                                                                                    
+                /* radar */
+                auto radar = ship->addChild();
+                radar->addComponent<component::Transform>(RADAR_POSITION);
+                radar->addComponent<component::Animation>(RADAR_ANIMATION);
+                                                                                                                    
+                /* - cylinder */
+                auto radar_cylinder = radar->addChild();
+                radar_cylinder->addComponent<component::Transform>(RADAR_CYLINDER_MODEL_TRANSLATION);
+                radar_cylinder->addComponent<component::ModelInstance>(ResourceLoader::get<resource::Model>("Radar/Cylinder"));
+                                                                                                                    
+                /* - cone */
+                auto radar_cone = radar->addChild();
+                radar_cone->addComponent<component::Transform>(RADAR_CONE_MODEL_POSITION, RADAR_CONE_MODEL_ROTATION);
+                radar_cone->addComponent<component::ModelInstance>(ResourceLoader::get<resource::Model>("Radar/Cone"));
+            
+                return std::make_tuple(ship, health_bar, cannon, cannon_barrel_transform);
+            };
 
-    player_id_ = player_ship->getId();
+            // - World border
+            const std::array rocks = {
+                ResourceLoader::get<resource::Model>("Rocks/1"),
+                ResourceLoader::get<resource::Model>("Rocks/2"),
+                ResourceLoader::get<resource::Model>("Rocks/3"),
+            };
 
-    auto cannon_camera = player_cannon->addChild();
-    cannon_camera->addComponent<component::Transform>(CANNON_CAMERA_OFFSET);
-    cannon_camera_ = cannon_camera->addComponent<component::Camera3D>(
-        component::Camera3D::Perspective{
-            .fov = FOV,
-            .near = PERSPECTIVE_NEAR,
-            .far = PERSPECTIVE_FAR,
-        },
-        EAST);
+            for (size_t i = 0; i < 4; ++i)
+            {
+                bool along_north = (i & 2);
+                bool potitive    = (i & 1);
 
-    player_cannon->addComponent<component::CannonPlayerController>(player_cannon_barrel_transform,
-                                                                   player_target_transform, cannon_camera_);
+                auto wall = scene_root_->addChild();
+                wall->addComponent<component::Transform>((WORLD_WIDTH / 2.0f - WALL_INSET) * (potitive ? 1.0f : -1.0f) * (along_north ? NORTH : EAST));
+                wall->addComponent<component::Collider>(component::Collider::AABB{
+                    .half_size = WALL_HEIGHT / 2.0f * UP
+                               + WORLD_WIDTH / 2.0f * (along_north ? EAST : NORTH)
+                               + 0.5f * (along_north ? NORTH : EAST),
+                    .center = WALL_HEIGHT / 2.0f * UP,
+                });
+                wall->addComponent<component::RigidBody>();
 
-    player_ship->addComponent<component::ShipPlayerController>();
+                for (size_t j = 0; j < ROCKS_PER_WORLD_SIDE; ++j)
+                {
+                    const float c1 = WORLD_WIDTH * (static_cast<float>(j) / static_cast<float>(ROCKS_PER_WORLD_SIDE - 1) - 0.5f);
+                    const float c2 = WORLD_WIDTH / 2.0f;
+                    const float east  = (potitive ? 1.0f : -1.0f) * (along_north ? c1 : c2);
+                    const float north = (potitive ? 1.0f : -1.0f) * (along_north ? c2 : c1);
 
-    // - Enemies
-    for (size_t i = 0; i < ENEMY_COUNT; ++i)
-    {
-        CREATE_SHIP(enemy, resource::Model::TextureOverride{}, ENEMY_SHIP_FLAG);
-        ships_and_health_bars_.push_back({enemy_ship, enemy_health_bar});
+                    std::shared_ptr<resource::Model> random_rock_model =
+                        Random::range<decltype(random_rock_model)>(rocks);
+                    const float angle = Random::random(0.0f, glm::radians(359.9f));
 
-        auto enemy_ship_target = scene_root_->addChild();
-        auto enemy_ship_target_transform = enemy_ship_target->addComponent<component::Transform>();
-        enemy_ship_target
-            ->addComponent<component::Collider>(component::Collider::AABB{
-                .half_size = 0.5f * ONE,
-                .center = ZERO,
-            })
-            ->disable();
+                    auto rock = scene_root_->addChild();
+                    rock->addComponent<component::Transform>(east * EAST + north * NORTH, angle * UP);
 
-        auto enemy_ship_target_target = scene_root_->addChild();
-        auto enemy_ship_target_target_transform = enemy_ship_target_target->addComponent<component::Transform>();
-        enemy_ship_target_target
-            ->addComponent<component::Collider>(component::Collider::AABB{
-                .half_size = 0.5f * ONE,
-                .center = ZERO,
-            })
-            ->disable();
+                    auto rock_model = rock->addChild();
+                    rock_model->addComponent<component::Transform>(ROCK_MODEL_TRANSLATION, ROCK_MODEL_ROTATION, ROCK_MODEL_SCALE);
+                    rock_model->addComponent<component::ModelInstance>(random_rock_model);
+                }
+            }
+        
+            // - Player
+            auto [player_ship, player_health_bar, player_cannon, player_cannon_barrel_transform] = addShip(PLAYER_SHIP_MATERIALS_OVERRIDE, "Ship/PlayerVariant");
+            ships_and_health_bars_.push_back({player_ship, player_health_bar});
+            player_id_ = player_ship->getId();
 
-        enemy_ship->addComponent<component::ShipAIController>(enemy_ship_target_transform);
-        enemy_cannon->addComponent<component::CannonAIController>(enemy_cannon_barrel_transform, enemy_target_transform,
-                                                                  enemy_ship_target_target_transform);
-    }
+            auto cannon_camera = player_cannon->addChild();
+            cannon_camera->addComponent<component::Transform>(CANNON_CAMERA_OFFSET);
+            cannon_camera_ = cannon_camera->addComponent<component::Camera3D>(
+                component::Camera3D::Perspective{
+                    .fov = FOV,
+                    .near = PERSPECTIVE_NEAR,
+                    .far = PERSPECTIVE_FAR,
+                },
+                EAST);
+        
+            player_cannon->addComponent<component::CannonPlayerController>(player_cannon_barrel_transform, cannon_camera_);
+            player_ship->addComponent<component::ShipPlayerController>();
 
-#endif
+            // - Enemies
+            for (size_t i = 0; i < ENEMY_COUNT; ++i)
+            {
+                auto [enemy_ship, enemy_health_bar, enemy_cannon, enemy_cannon_barrel_transform] = addShip(ENEMY_SHIP_MATERIALS_OVERRIDE, ENEMY_SHIP_FLAG);
+                ships_and_health_bars_.push_back({enemy_ship, enemy_health_bar});
 
-    // - Water
-    auto water = scene_root_->addChild();
-    water->addComponent<component::Transform>(glm::vec3{}, glm::vec3{}, glm::vec3{1.0f, 1.0f, 1.0f});
-    water->addComponent<component::Collider>(
-        component::Collider::AABB{
-            .half_size = {WORLD_WIDTH / 2.0f, WORLD_WIDTH / 2.0f, 0.5f},
-            .center = {0.0f, 0.0f, -0.5f},
-        },
-        true);
-    water->addComponent<component::Water>();
+                auto enemy_ship_target = scene_root_->addChild();
+                auto enemy_ship_target_transform = enemy_ship_target->addComponent<component::Transform>();
+                enemy_ship_target
+                    ->addComponent<component::Collider>(component::Collider::AABB{
+                        .half_size = 0.5f * ONE,
+                        .center = ZERO,
+                    })
+                    ->disable();
 
-    // - Victory message
-    auto victory_message = scene_root_->addChild();
-    victory_message->addComponent<component::Transform>(MESSAGE_POSITION);
-    victory_message->addComponent<component::Text>(MESSAGE_WIDTH, MESSAGE_HEIGHT,
-                                                   ResourceLoader::getAsset<resource::Texture>(VICTORY_MESSAGE));
-    victory_message_ = victory_message;
+                enemy_ship->addComponent<component::ShipAIController>(enemy_ship_target_transform);
+                enemy_cannon->addComponent<component::CannonAIController>(enemy_cannon_barrel_transform);
+            }
+        }
 
-    // - Defeat message
-    auto defeat_message = scene_root_->addChild();
-    defeat_message->addComponent<component::Transform>(MESSAGE_POSITION);
-    defeat_message->addComponent<component::Text>(MESSAGE_WIDTH, MESSAGE_HEIGHT,
-                                                  ResourceLoader::getAsset<resource::Texture>(DEFEAT_MESSAGE));
-    defeat_message_ = defeat_message;
+        // - Water
+        water = scene_root_->addChild();
+        water->addComponent<component::Transform>(glm::vec3{}, glm::vec3{}, glm::vec3{1.0f, 1.0f, 1.0f});
+        water->addComponent<component::Collider>(
+            component::Collider::AABB{
+                .half_size = {WORLD_WIDTH / 2.0f, WORLD_WIDTH / 2.0f, 0.5f},
+                .center = {0.0f, 0.0f, -0.5f},
+            },
+            true);
+        water->addComponent<component::Water>();
 
-#pragma endregion scene
+        if constexpr (!DEBUG_SCENE)
+        {
+            // - Victory message
+            auto victory_message = scene_root_->addChild();
+            victory_message->addComponent<component::Transform>(MESSAGE_POSITION);
+            victory_message->addComponent<component::Text>(MESSAGE_WIDTH, MESSAGE_HEIGHT, ResourceLoader::get<resource::Texture>("Message/Victory"));
+            victory_message_ = victory_message;
 
-    LOG_INFO("initializing");
+            // - Defeat message
+            auto defeat_message = scene_root_->addChild();
+            defeat_message->addComponent<component::Transform>(MESSAGE_POSITION);
+            defeat_message->addComponent<component::Text>(MESSAGE_WIDTH, MESSAGE_HEIGHT, ResourceLoader::get<resource::Texture>("Message/Defeat"));
+            defeat_message_ = defeat_message;
+        }
+    }();
 
     scene_root_->initialize();
     restart();
 
-    LOG_DEBUG("cannon_balls initial velocity: {} m/s", INITIAL_CANNON_BALL_VELOCITY);
+    /******************************************************************************/
+    /*                              Events Callbacks                              */
+    /******************************************************************************/
 
-#if !defined(DEBUG_SCENE)
+    EventQueue::registerCallback<event::WindowResized>([](const event::WindowResized &event) {
+        glViewport(0, 0, static_cast<GLsizei>(event.width), static_cast<GLsizei>(event.height));
+    });
+
     const auto water_id = water->getId();
     EventQueue::registerCallback<event::Fire>([this, water_id](const event::Fire &event) {
         if (glm::length(event.initial_velocity) < EPSILON)
@@ -698,7 +784,7 @@ Application::Application() : should_close_(false), free_view_override_(false)
                 }
 
                 const auto cannon_ball_transform = cannon_ball_non_weak->getComponent<component::Transform>().value();
-                const auto cannon_ball_position = glm::vec3(cannon_ball_transform->resolve()[3]);
+                const auto cannon_ball_position  = glm::vec3(cannon_ball_transform->resolve()[3]);
 
                 if (id == water_id)
                 {
@@ -706,7 +792,7 @@ Application::Application() : should_close_(false), free_view_override_(false)
                     for (auto &particle : particles)
                     {
                         const float radius = Random::random(0.0f, PLOOF_PARTICLE_SPAWN_RADIUS);
-                        const float angle = Random::random(0.0f, glm::radians(359.9f));
+                        const float angle  = Random::radians();
 
                         const auto offset = radius * (std::cos(angle) * EAST + std::sin(angle) * NORTH);
 
@@ -746,10 +832,10 @@ Application::Application() : should_close_(false), free_view_override_(false)
 
                         particle.position = cannon_ball_position;
                         particle.velocity = t * EXPLOSION_PARTICLE_MAX_VELOCITY * Random::direction();
-                        particle.life = toSeconds(EXPLOSION_PARTICLE_MAX_LIFETIME);
-                        particle.color = glm::mix(EXPLOSION_PARTICLE_INNER_COLOR, EXPLOSION_PARTICLE_OUTTER_COLOR, t);
+                        particle.life     = toSeconds(EXPLOSION_PARTICLE_MAX_LIFETIME);
+                        particle.color    = glm::mix(EXPLOSION_PARTICLE_INNER_COLOR, EXPLOSION_PARTICLE_OUTTER_COLOR, t);
+                        particle.scale    = {0.8f, 0.8f};
                         particle.is_subject_to_gravity = false;
-                        particle.scale = {0.8f, 0.8f};
                     }
                     ParticleSystem::addParticles(particles);
                 }
@@ -768,8 +854,7 @@ Application::Application() : should_close_(false), free_view_override_(false)
         auto cannon_ball_model = cannon_ball->addChild();
         cannon_ball_model->addComponent<component::Transform>(CANNON_BALL_MODEL_TRANSLATION, CANNON_BALL_MODEL_ROTATION,
                                                               CANNON_BALL_MODEL_SCALE);
-        cannon_ball_model->addComponent<component::ModelInstance>(
-            ResourceLoader::getAsset<resource::Model>(CANNON_BALL_MODEL));
+        cannon_ball_model->addComponent<component::ModelInstance>(ResourceLoader::get<resource::Model>("CannonBall"));
         cannon_ball_model->addComponent<component::Animation>([](float delta_time,
                                                                  std::shared_ptr<component::Transform> transform,
                                                                  std::shared_ptr<GameObject> game_object) {
@@ -814,26 +899,6 @@ Application::Application() : should_close_(false), free_view_override_(false)
             last_cannon_ball_camera_.value().lock()->lookToward(glm::normalize(event.initial_velocity));
         }
     });
-#else
-    (void)SHIP_MASS;
-    (void)CANNON_POSITION_IN_SHIP;
-    (void)CANNON_BARREL_POSITION_IN_CANNON;
-    (void)CANNON_BARREL_ROTATION_IN_CANNON;
-    (void)CANNON_BALL_MASS;
-    (void)CANNON_BALL_COLLIDER;
-    (void)RADAR_CYLINDER_MODEL_TRANSLATION;
-    (void)RADAR_CONE_MODEL_POSITION;
-    (void)RADAR_CONE_MODEL_ROTATION;
-    (void)RADAR_POSITION;
-    (void)CANNON_CAMERA_OFFSET;
-    (void)CANNON_BALL_CAMERA_OFFSET;
-    (void)player_id_;
-#endif
-
-    Singleton::game_loaded = true;
-
-    main_view_ = View::Top;
-    Singleton::view = main_view_;
 
     EventQueue::registerCallback<event::DetachGameObject>([this](const event::DetachGameObject &event) {
         auto game_object_option = Singleton::scene_root.lock()->getGameObject(event.game_object_id);
@@ -896,11 +961,13 @@ Application::Application() : should_close_(false), free_view_override_(false)
         if (event.game_object_id != player_id_)
             return;
 
-        component::Camera3D::displayEffect(ResourceLoader::getAsset<resource::Texture>(HIT_VIGNETTE),
-                                           HIT_VIGNETTE_DURATION);
+        component::Camera3D::displayEffect(ResourceLoader::get<resource::Texture>("Effect/HitVignette"), HIT_VIGNETTE_DURATION);
         component::Camera3D::shake(HIT_VIGNETTE_DURATION);
     });
 
+    // clang-format on
+
+    Singleton::game_loaded = true;
     LOG_INFO("ready");
 }
 
@@ -922,6 +989,8 @@ void Application::initializeOpenGL()
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
+
+    glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 }
 
 void Application::run()
@@ -1085,18 +1154,20 @@ void Application::render() const
     ProfileScope;
     ProfileScopeGPU("Application::render");
 
-    constexpr const auto SKY_COLOR = rgb(193, 234, 255);
-    glClearColor(SKY_COLOR.r, SKY_COLOR.g, SKY_COLOR.b, SKY_COLOR.a);
+    glClearColor(color::SKY.r, color::SKY.g, color::SKY.b, color::SKY.a);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     auto camera = Singleton::active_camera.lock();
     camera->bind();
+    component::DirectionalLight::beginRender();
 
     if (Singleton::rendering_style == RenderingStyle::WireframeWithHiddenLinesRemoval)
     {
         glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         renderPass(camera);
+
+        component::DirectionalLight::endRender();
 
         glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -1105,6 +1176,7 @@ void Application::render() const
     else
     {
         renderPass(camera);
+        component::DirectionalLight::endRender();
     }
 }
 
@@ -1122,47 +1194,50 @@ void Application::restart()
 {
     ProfileScope;
 
-    // hide messages
-    victory_message_.lock()->visible = false;
-    defeat_message_.lock()->visible = false;
-
-    // destroy cannon balls & explosions
-    for (auto &[_, game_object] : to_detach_on_restart_)
+    if constexpr (!DEBUG_SCENE)
     {
-        game_object.lock()->detach();
-    }
-    to_detach_on_restart_.clear();
+        // hide messages
+        victory_message_.lock()->visible = false;
+        defeat_message_.lock()->visible = false;
 
-    auto spawn_locations = SPAWN_LOCATIONS | std::ranges::to<std::vector>();
-
-    for (auto pair : ships_and_health_bars_)
-    {
-        auto [weak_ship, weak_health_bar] = pair;
-
-        auto ship = weak_ship.lock();
-        auto health_bar = weak_health_bar.lock();
-
-        // reactivate ships
-        ship->active = true;
-        ship->visible = true;
-        health_bar->active = true;
-        health_bar->visible = true;
-
-        // replace ships
-        const auto ship_position = Random::pop(spawn_locations);
-        auto ship_transform = ship->getComponent<component::Transform>().value();
-        ship_transform->setPosition(ship_position);
-        auto ship_rigid_body = ship->getComponent<component::RigidBody>().value();
-        ship_rigid_body->reset();
-
-        auto ship_player_controller_option = ship->getComponent<component::ShipPlayerController>();
-        if (ship_player_controller_option.has_value())
+        // destroy cannon balls & explosions
+        for (auto &[_, game_object] : to_detach_on_restart_)
         {
-            ship_player_controller_option.value()->stop();
+            game_object.lock()->detach();
         }
+        to_detach_on_restart_.clear();
 
-        // refill ship health
-        ship->getComponent<component::Health>().value()->heal();
+        auto spawn_locations = SPAWN_LOCATIONS | std::ranges::to<std::vector>();
+
+        for (auto pair : ships_and_health_bars_)
+        {
+            auto [weak_ship, weak_health_bar] = pair;
+
+            auto ship = weak_ship.lock();
+            auto health_bar = weak_health_bar.lock();
+
+            // reactivate ships
+            ship->active = true;
+            ship->visible = true;
+            health_bar->active = true;
+            health_bar->visible = true;
+
+            // replace ships
+            const auto ship_position = Random::pop(spawn_locations);
+            auto ship_transform = ship->getComponent<component::Transform>().value();
+            ship_transform->setPosition(ship_position);
+            auto ship_rigid_body = ship->getComponent<component::RigidBody>().value();
+            ship_rigid_body->reset();
+
+            auto ship_player_controller_option = ship->getComponent<component::ShipPlayerController>();
+            if (ship_player_controller_option.has_value())
+            {
+                ship_player_controller_option.value()->stop();
+            }
+
+            // refill ship health
+            ship->getComponent<component::Health>().value()->heal();
+        }
     }
 
     const auto [framebuffer_width, framebuffer_height] = window_->getFramebufferSize();

@@ -170,8 +170,6 @@ void processNode(const size_t node_index, const glm::mat4 &parent_transform, con
             const std::span<const tg3_str_int_pair> attributes(primitive.attributes, primitive.attributes_count);
             for (const auto &attribute : attributes)
             {
-                const std::string_view attribute_name(attribute.key.data, attribute.key.len);
-
                 if (attribute.value < 0 || model_accessors.size() <= static_cast<size_t>(attribute.value))
                 {
                     LOG_WARNING("ill formatted gltf '{}', found accessor index {} >= model accessor count, skipped",
@@ -199,16 +197,16 @@ void processNode(const size_t node_index, const glm::mat4 &parent_transform, con
                 const auto &buffer = model_buffers[static_cast<size_t>(bufferView.buffer)];
                 const uint8_t *baseData = buffer.data.data + bufferView.byte_offset + accessor.byte_offset;
 
-                if (attribute_name == "POSITION")
+                if (tg3_str_equals_cstr(attribute.key, "POSITION"))
                 {
                     positions = reinterpret_cast<glm::vec3 *>(const_cast<uint8_t *>(baseData));
                     vertex_count = accessor.count;
                 }
-                else if (attribute_name == "NORMAL")
+                else if (tg3_str_equals_cstr(attribute.key, "NORMAL"))
                 {
                     normals = reinterpret_cast<glm::vec3 *>(const_cast<uint8_t *>(baseData));
                 }
-                else if (attribute_name == "TEXCOORD_0")
+                else if (tg3_str_equals_cstr(attribute.key, "TEXCOORD_0"))
                 {
                     uvs = reinterpret_cast<glm::vec2 *>(const_cast<uint8_t *>(baseData));
                 }
@@ -346,9 +344,11 @@ void processNode(const size_t node_index, const glm::mat4 &parent_transform, con
 
 } // namespace
 
-std::shared_ptr<Model> Model::loadFromFile(const std::filesystem::path &path)
+std::shared_ptr<Model> Model::load(const std::filesystem::path &partial_path)
 {
     ProfileScope;
+
+    const auto path = ResourceLoader::ASSETS_DIRECTORY / DIRECTORY / partial_path;
 
     LOG_DEBUG("loading model '{}'", relativeToExeDir(path).string());
 
@@ -406,17 +406,16 @@ std::shared_ptr<Model> Model::loadFromFile(const std::filesystem::path &path)
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunsafe-buffer-usage-in-container"
+#pragma clang diagnostic ignored "-Wswitch-enum"
 
-    std::vector<std::shared_ptr<Texture>> textures;
+    std::vector<std::string_view> textures;
     const auto model_directory = path.parent_path();
 
     const std::span<const tg3_image> images(model.images, model.images_count);
     for (const auto &image : images)
     {
         const std::string_view uri(image.uri.data, image.uri.len);
-
-        const auto texture = ResourceLoader::getAsset<Texture>(uri);
-        textures.push_back(texture);
+        textures.push_back(uri);
     }
 
     std::vector<VertexPBR> vertices;
@@ -476,7 +475,7 @@ std::shared_ptr<Model> Model::loadFromFile(const std::filesystem::path &path)
     const std::span<const tg3_texture> model_textures(model.textures, model.textures_count);
 
     std::vector<Model::Shape> meshes;
-    for (const auto &[matIndex, indices] : material_indices)
+    for (const auto &[material_index, indices] : material_indices)
     {
         GLuint index_buffer;
         glGenBuffers(1, &index_buffer);
@@ -486,18 +485,18 @@ std::shared_ptr<Model> Model::loadFromFile(const std::filesystem::path &path)
 
         // Load material
         Material material;
-        if (matIndex < 0)
+        if (material_index < 0)
             continue;
 
-        const auto &gltf_material = model_materials[static_cast<size_t>(matIndex)];
+        const auto &gltf_material = model_materials[static_cast<size_t>(material_index)];
 
-        // Base Color Factor
-        material.base_color = glm::vec4(static_cast<float>(gltf_material.pbr_metallic_roughness.base_color_factor[0]),
-                                        static_cast<float>(gltf_material.pbr_metallic_roughness.base_color_factor[1]),
-                                        static_cast<float>(gltf_material.pbr_metallic_roughness.base_color_factor[2]),
-                                        static_cast<float>(gltf_material.pbr_metallic_roughness.base_color_factor[3]));
+        // Albedo
+        material.albedo_color =
+            glm::vec4(static_cast<float>(gltf_material.pbr_metallic_roughness.base_color_factor[0]),
+                      static_cast<float>(gltf_material.pbr_metallic_roughness.base_color_factor[1]),
+                      static_cast<float>(gltf_material.pbr_metallic_roughness.base_color_factor[2]),
+                      static_cast<float>(gltf_material.pbr_metallic_roughness.base_color_factor[3]));
 
-        // Base Color Texture
         if (gltf_material.pbr_metallic_roughness.base_color_texture.index >= 0)
         {
             int32_t texture_index = gltf_material.pbr_metallic_roughness.base_color_texture.index;
@@ -506,25 +505,36 @@ std::shared_ptr<Model> Model::loadFromFile(const std::filesystem::path &path)
                 size_t source_index = static_cast<size_t>(model_textures[static_cast<size_t>(texture_index)].source);
                 if (source_index < textures.size())
                 {
-                    material.base_color_texture = textures[source_index];
+                    const auto texture_uri = textures[source_index];
+
+                    if (!ResourceLoader::isLoaded(texture_uri))
+                    {
+                        ResourceLoader::load<Texture>(texture_uri, texture_uri, Texture::Type::Albedo);
+                    }
+                    material.albedo_texture = ResourceLoader::get<Texture>(texture_uri);
                 }
             }
         }
 
-        // Metallic and Roughness Factors
+        // Metallic / Roughness
         material.metallic_factor = static_cast<float>(gltf_material.pbr_metallic_roughness.metallic_factor);
         material.roughness_factor = static_cast<float>(gltf_material.pbr_metallic_roughness.roughness_factor);
 
-        // Metallic Roughness Texture
         if (gltf_material.pbr_metallic_roughness.metallic_roughness_texture.index >= 0)
         {
             int32_t texIdx = gltf_material.pbr_metallic_roughness.metallic_roughness_texture.index;
             if (texIdx >= 0 && static_cast<size_t>(texIdx) < model.textures_count)
             {
-                size_t srcIdx = static_cast<size_t>(model_textures[static_cast<size_t>(texIdx)].source);
-                if (srcIdx < textures.size())
+                size_t source_index = static_cast<size_t>(model_textures[static_cast<size_t>(texIdx)].source);
+                if (source_index < textures.size())
                 {
-                    material.metallic_roughness_texture = textures[srcIdx];
+                    const auto texture_uri = textures[source_index];
+
+                    if (!ResourceLoader::isLoaded(texture_uri))
+                    {
+                        ResourceLoader::load<Texture>(texture_uri, texture_uri, Texture::Type::MetallicRoughness);
+                    }
+                    material.metallic_roughness_texture = ResourceLoader::get<Texture>(texture_uri);
                 }
             }
         }
@@ -538,17 +548,22 @@ std::shared_ptr<Model> Model::loadFromFile(const std::filesystem::path &path)
                 size_t source_index = static_cast<size_t>(model_textures[static_cast<size_t>(texture_index)].source);
                 if (source_index < textures.size())
                 {
-                    material.normal_texture = textures[source_index];
+                    const auto texture_uri = textures[source_index];
+
+                    if (!ResourceLoader::isLoaded(texture_uri))
+                    {
+                        ResourceLoader::load<Texture>(texture_uri, texture_uri, Texture::Type::NormalMap);
+                    }
+                    material.normal_map = ResourceLoader::get<Texture>(texture_uri);
                 }
             }
         }
 
-        // Emissive Factor
+        // Emissive
         material.emissive_color = Color(static_cast<float>(gltf_material.emissive_factor[0]),
                                         static_cast<float>(gltf_material.emissive_factor[1]),
                                         static_cast<float>(gltf_material.emissive_factor[2]), 1.0f);
 
-        // Emissive Texture
         if (gltf_material.emissive_texture.index >= 0)
         {
             int32_t texture_index = gltf_material.emissive_texture.index;
@@ -557,29 +572,101 @@ std::shared_ptr<Model> Model::loadFromFile(const std::filesystem::path &path)
                 size_t source_index = static_cast<size_t>(model_textures[static_cast<size_t>(texture_index)].source);
                 if (source_index < textures.size())
                 {
-                    material.emissive_texture = textures[source_index];
+                    const auto texture_uri = textures[source_index];
+
+                    if (!ResourceLoader::isLoaded(texture_uri))
+                    {
+                        ResourceLoader::load<Texture>(texture_uri, texture_uri, Texture::Type::Emissive);
+                    }
+                    material.emissive_texture = ResourceLoader::get<Texture>(texture_uri);
                 }
             }
         }
 
-        // Ambient Occlusion
-        if (gltf_material.occlusion_texture.index >= 0)
+        const std::span<const tg3_extension> material_extensions(gltf_material.ext.extensions,
+                                                                 gltf_material.ext.extensions_count);
+        for (const auto &&[extension_index, extension] : material_extensions | std::views::enumerate)
         {
-            int32_t texture_index = gltf_material.occlusion_texture.index;
-            if (texture_index >= 0 && static_cast<size_t>(texture_index) < model.textures_count)
+            // Specular
+            if (tg3_str_equals_cstr(extension.name, "KHR_materials_specular"))
             {
-                size_t source_index = static_cast<size_t>(model_textures[static_cast<size_t>(texture_index)].source);
-                if (source_index < textures.size())
+                const auto &value = extension.value;
+
+                if (value.type != TG3_VALUE_OBJECT)
                 {
-                    material.ambient_occlusion_texture = textures[source_index];
+                    LOG_WARNING("ill formatted value on extension #{}, material #{} : value is not an object",
+                                extension_index, material_index);
+                    continue;
+                }
+
+                const std::span<const tg3_kv_pair> extension_objects(value.object_data, value.object_count);
+                for (const auto &kv : extension_objects)
+                {
+                    if (tg3_str_equals_cstr(kv.key, "specularFactor"))
+                    {
+                        switch (kv.value.type)
+                        {
+                        case TG3_VALUE_REAL:
+                            material.specular_factor = static_cast<float>(kv.value.real_val);
+                            break;
+                        case TG3_VALUE_INT:
+                            material.specular_factor = static_cast<float>(kv.value.int_val);
+                            break;
+                        default:
+                            LOG_WARNING("ill formatted value for material #{}, extension #{}: "
+                                        "KHR_materials_specular.specularFactor: value should be a real or an int",
+                                        material_index, extension_index);
+                        }
+                    }
+
+                    if (tg3_str_equals_cstr(kv.key, "specularColor"))
+                    {
+                        if (kv.value.type != TG3_VALUE_ARRAY)
+                        {
+                            LOG_WARNING("ill formatted value for material #{}, extension #{}: "
+                                        "KHR_materials_specular.specularColor: value should be an array",
+                                        material_index, extension_index);
+                            continue;
+                        }
+
+                        if (kv.value.array_count != 3)
+                        {
+                            LOG_WARNING("ill formatted value for material #{}, extension #{}: "
+                                        "KHR_materials_specular.specularColor: value should be an array of 3 values",
+                                        material_index, extension_index);
+                            continue;
+                        }
+
+                        std::array<float, 3> rgb{};
+                        const std::span<const tg3_value> kv_values(kv.value.array_data, kv.value.array_count);
+
+                        for (auto &&[c, v] : std::views::zip(rgb, kv_values))
+                        {
+                            switch (v.type)
+                            {
+                            case TG3_VALUE_REAL:
+                                c = static_cast<float>(v.real_val);
+                                break;
+                            case TG3_VALUE_INT:
+                                c = static_cast<float>(v.int_val);
+                                break;
+                            default:
+                                LOG_WARNING(
+                                    "ill formatted value for material #{}, extension #{}: "
+                                    "KHR_materials_specular.specularColor: value should be an array of 3 reals or ints",
+                                    material_index, extension_index);
+                            }
+                        }
+
+                        material.specular_color = Color{rgb[0], rgb[1], rgb[2], 1.0f};
+                    }
                 }
             }
+            else
+            {
+                LOG_WARNING("material {} use an unsupported extension: '{}'", material_index, extension.name.data);
+            }
         }
-
-        LOG_TRACE("loaded material with {} textures",
-                  (material.base_color_texture ? 1 : 0) + (material.metallic_roughness_texture ? 1 : 0) +
-                      (material.normal_texture ? 1 : 0) + (material.emissive_texture ? 1 : 0) +
-                      (material.ambient_occlusion_texture ? 1 : 0));
 
         meshes.push_back({index_buffer, static_cast<GLsizei>(indices.size()), material});
     }
@@ -604,95 +691,123 @@ std::shared_ptr<Model> Model::loadFromFile(const std::filesystem::path &path)
 
     LOG_TRACE("loaded model with {} meshes", meshes.size());
 
+    LOG_TRACE("loaded model '{}' with:", relativeToExeDir(path).string());
+    LOG_TRACE("- vertex array id {}", vertex_array);
+    LOG_TRACE("- vertex buffer id {}", vertex_buffer);
+    for (const auto &mesh : meshes)
+    {
+        LOG_TRACE("- index buffer id {}", mesh.index_buffer);
+    }
+
     return std::make_shared<Model>(vertex_array, vertex_buffer, meshes);
 #pragma clang diagnostic pop
 }
 
-static const Model::TextureOverride::mapped_type EMPTY_OVERRIDE = {};
 constexpr const GLenum BASE_COLOR_TEXTURE_SLOT = GL_TEXTURE0;
 constexpr const GLenum METALLIC_ROUGHNESS_TEXTURE_SLOT = GL_TEXTURE1;
+constexpr const GLenum NORMAL_MAP_TEXTURE_SLOT = GL_TEXTURE2;
+constexpr const GLenum EMISSIVE_TEXTURE_SLOT = GL_TEXTURE3;
 
-void Model::draw(std::shared_ptr<resource::Shader> shader, TextureOverride texture_override) const
+void Model::draw(std::shared_ptr<resource::Shader> shader, MaterialsOverride materials_override) const
 {
     ProfileScope;
     ProfileScopeGPU("Model::draw");
 
-    glBindVertexArray(vertex_array_);
-    glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
-
-    for (const auto &&[i, mesh] : shapes_ | std::views::enumerate)
-    {
-        const auto &material = mesh.material;
-
-        const auto it = texture_override.find(static_cast<size_t>(i));
-        const auto &material_texture_override = it != texture_override.end() ? it->second : EMPTY_OVERRIDE;
-
-        auto base_color_texture = material_texture_override.contains(Texture::Type::Albedo)
-                                      ? material_texture_override.at(Texture::Type::Albedo)
-                                      : material.base_color_texture;
-        if (base_color_texture == nullptr)
-        {
-            base_color_texture = Texture::MISSING;
-        }
-        base_color_texture->bind(BASE_COLOR_TEXTURE_SLOT, shader, "u_Texture");
-        shader->setUniform("u_TextureColor", material.base_color);
-
-        auto metallic_roughness_texture = material_texture_override.contains(Texture::Type::MetallicRoughness)
-                                              ? material_texture_override.at(Texture::Type::MetallicRoughness)
-                                              : material.metallic_roughness_texture;
-        if (base_color_texture == nullptr)
-        {
-            base_color_texture = Texture::MISSING;
-        }
-        base_color_texture->bind(METALLIC_ROUGHNESS_TEXTURE_SLOT, shader, "u_MetallicRoughnessTex");
-        shader->setUniform("u_MetallicFactor", material.metallic_factor);
-        shader->setUniform("u_RoughnessFactor", material.roughness_factor);
-
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.index_buffer);
-        glDrawElements(GL_TRIANGLES, mesh.index_count, GL_INDEX_TYPE, nullptr);
-    }
+    drawInner(shader, materials_override, std::nullopt);
 }
 
 void Model::drawInstanced(std::shared_ptr<resource::Shader> shader, size_t intance_count,
-                          TextureOverride texture_override) const
+                          MaterialsOverride materials_override) const
 {
     ProfileScope;
     ProfileScopeGPU("Model::drawInstanced");
 
+    drawInner(shader, materials_override, intance_count);
+}
+
+void Model::drawInner(std::shared_ptr<resource::Shader> shader, MaterialsOverride materials_override,
+                      std::optional<size_t> intance_count) const
+{
+    ProfileScope;
+    ProfileScopeGPU("Model::drawInner");
+
     glBindVertexArray(vertex_array_);
     glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
 
+    const auto getTexture = [](std::weak_ptr<Texture> weak_texture, Texture::Type type) {
+        auto texture = weak_texture.lock();
+
+        if (texture != nullptr)
+            return texture;
+
+        switch (type)
+        {
+        case Texture::Type::Albedo:
+            [[fallthrough]];
+        case Texture::Type::Emissive:
+            return Texture::MISSING_ALBEDO;
+        case Texture::Type::MetallicRoughness:
+            return Texture::MISSING_METALLIC_ROUGHNESS;
+        case Texture::Type::NormalMap:
+            return Texture::MISSING_NORMAL_MAP;
+        }
+    };
+
     for (const auto &&[i, mesh] : shapes_ | std::views::enumerate)
     {
-        const auto &material = mesh.material;
-
-        const auto it = texture_override.find(static_cast<size_t>(i));
-        const auto &material_texture_override = it != texture_override.end() ? it->second : EMPTY_OVERRIDE;
-
-        auto base_color_texture = material_texture_override.contains(Texture::Type::Albedo)
-                                      ? material_texture_override.at(Texture::Type::Albedo)
-                                      : material.base_color_texture;
-        if (base_color_texture == nullptr)
+        auto material = mesh.material;
+        if (materials_override.contains(static_cast<size_t>(i)))
         {
-            base_color_texture = Texture::MISSING;
-        }
-        base_color_texture->bind(BASE_COLOR_TEXTURE_SLOT, shader, "u_Texture");
-        shader->setUniform("u_TextureColor", material.base_color);
+            const auto &material_override = materials_override[static_cast<size_t>(i)];
 
-        auto metallic_roughness_texture = material_texture_override.contains(Texture::Type::MetallicRoughness)
-                                              ? material_texture_override.at(Texture::Type::MetallicRoughness)
-                                              : material.metallic_roughness_texture;
-        if (base_color_texture == nullptr)
-        {
-            base_color_texture = Texture::MISSING;
+            // clang-format off
+            material.albedo_color               = material_override.albedo_color.has_value()                ? material_override.albedo_color.value()                : material.albedo_color               ;
+            material.albedo_texture             = material_override.albedo_texture.has_value()              ? material_override.albedo_texture.value()              : material.albedo_texture             ;
+            material.metallic_factor            = material_override.metallic_factor.has_value()             ? material_override.metallic_factor.value()             : material.metallic_factor            ;
+            material.roughness_factor           = material_override.roughness_factor.has_value()            ? material_override.roughness_factor.value()            : material.roughness_factor           ;
+            material.metallic_roughness_texture = material_override.metallic_roughness_texture.has_value()  ? material_override.metallic_roughness_texture.value()  : material.metallic_roughness_texture ;
+            material.normal_map                 = material_override.normal_map.has_value()                  ? material_override.normal_map.value()                  : material.normal_map                 ;
+            material.emissive_color             = material_override.emissive_color.has_value()              ? material_override.emissive_color.value()              : material.emissive_color             ;
+            material.emissive_texture           = material_override.emissive_texture.has_value()            ? material_override.emissive_texture.value()            : material.emissive_texture           ;
+            material.specular_factor            = material_override.specular_factor.has_value()             ? material_override.specular_factor.value()             : material.specular_factor            ;
+            material.specular_color             = material_override.specular_color.has_value()              ? material_override.specular_color.value()              : material.specular_color             ;
+            // clang-format on
         }
-        base_color_texture->bind(METALLIC_ROUGHNESS_TEXTURE_SLOT, shader, "u_MetallicRoughnessTex");
+
+        // Albedo
+        shader->setUniform("u_AlbedoColor", material.albedo_color);
+        getTexture(material.albedo_texture, Texture::Type::Albedo)
+            ->bind(BASE_COLOR_TEXTURE_SLOT, shader, "u_AlbedoTexture");
+
+        // Metallic / Roughness
         shader->setUniform("u_MetallicFactor", material.metallic_factor);
         shader->setUniform("u_RoughnessFactor", material.roughness_factor);
+        getTexture(material.metallic_roughness_texture, Texture::Type::MetallicRoughness)
+            ->bind(METALLIC_ROUGHNESS_TEXTURE_SLOT, shader, "u_MetallicRoughnessTexture");
+
+        // Normal Map
+        getTexture(material.normal_map, Texture::Type::NormalMap)->bind(NORMAL_MAP_TEXTURE_SLOT, shader, "u_NormalMap");
+
+        // Emissive
+        shader->setUniform("u_EmissiveColor", glm::vec3(material.emissive_color));
+        getTexture(material.emissive_texture, Texture::Type::Emissive)
+            ->bind(EMISSIVE_TEXTURE_SLOT, shader, "u_EmissiveTexture");
+
+        // Specular
+        shader->setUniform("u_SpecularFactor", material.specular_factor);
+        shader->setUniform("u_SpecularColor", glm::vec3(material.specular_color));
 
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.index_buffer);
-        glDrawElementsInstanced(GL_TRIANGLES, mesh.index_count, GL_INDEX_TYPE, nullptr,
-                                static_cast<GLsizei>(intance_count));
+
+        if (intance_count.has_value())
+        {
+            glDrawElementsInstanced(GL_TRIANGLES, mesh.index_count, GL_INDEX_TYPE, nullptr,
+                                    static_cast<GLsizei>(intance_count.value()));
+        }
+        else
+        {
+            glDrawElements(GL_TRIANGLES, mesh.index_count, GL_INDEX_TYPE, nullptr);
+        }
     }
 }
 

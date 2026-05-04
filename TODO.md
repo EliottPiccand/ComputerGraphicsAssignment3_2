@@ -37,6 +37,7 @@
 - ~~sparks on cannon ball stem~~
 - ~~red overlay on getting hit~~
 - ~~instanciated rendering for particle system~~
+- pbr
 - fireworks on win
 - sink animation
 - rotating ship wheel
@@ -44,11 +45,11 @@
 - waves + water interaction
 - sun
 - birds
-- pbr
+- shadows
 
 ## If time
 - ~~move textures in the assets/texture folder and fix models accordingly~~
 - fix copy_asset.py when ?
 - update every part using Instant or Duration to something not linked to the system clock, to properly be able to pause the game.
 - readd debug view
-- add ResourceLoader collision name detection
+- debug GameObject names
