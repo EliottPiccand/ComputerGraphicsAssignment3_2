@@ -13,13 +13,12 @@ namespace component
 class Animation : public Component
 {
   public:
-    using Callback = std::function<void(float delta_time, std::shared_ptr<Transform> transform,
-                                        std::shared_ptr<GameObject> game_object)>;
+    using Callback = std::function<void(std::shared_ptr<Transform> transform, std::shared_ptr<GameObject> game_object)>;
 
     Animation(Callback callback);
 
     void initialize() override;
-    void update(float delta_time) override;
+    void update() override;
 
   private:
     std::weak_ptr<Transform> transform_;

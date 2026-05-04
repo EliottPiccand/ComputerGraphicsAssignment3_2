@@ -11,6 +11,7 @@
 #include "Utils/Constants.h"
 #include "Utils/Log.h"
 #include "Utils/Profiling.h"
+#include "Utils/Time.h"
 
 constexpr const uint32_t MAX_PARTICLES = 100'000;
 
@@ -58,7 +59,7 @@ void ParticleSystem::initialize()
     glClearBufferData(GL_SHADER_STORAGE_BUFFER, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT, &particle_count_);
 }
 
-void ParticleSystem::update(float delta_time)
+void ParticleSystem::update()
 {
     ProfileScope;
 
@@ -72,7 +73,7 @@ void ParticleSystem::update(float delta_time)
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, ssbo_count_);
 
     compute_shader->bind();
-    compute_shader->setUniform("u_DeltaTime", delta_time);
+    compute_shader->setUniform("u_DeltaTime", Time::getDeltaTime());
     compute_shader->setUniform("u_Gravity", GRAVITY_ACCELERATION);
     compute_shader->setUniform("u_ParticlesCount", particle_count_);
 

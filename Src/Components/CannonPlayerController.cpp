@@ -23,7 +23,7 @@ CannonPlayerController::CannonPlayerController(std::weak_ptr<Transform> cannon_b
     Input::bindMouseButton(Input::Action::CancelFire, GLFW_MOUSE_BUTTON_RIGHT);
 }
 
-void CannonPlayerController::updateTarget(float delta_time)
+void CannonPlayerController::updateTarget()
 {
     ProfileScope;
 
@@ -75,7 +75,7 @@ void CannonPlayerController::updateTarget(float delta_time)
 
         if (glm::length(target_motion) > EPSILON)
         {
-            target += glm::normalize(target_motion) * DEBUG_TARGET_SPEED * delta_time;
+            target += glm::normalize(target_motion) * DEBUG_TARGET_SPEED * Time::getDeltaTime();
         }
     }
 

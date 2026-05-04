@@ -15,7 +15,7 @@ class HealthBar : public Component
     HealthBar(std::weak_ptr<Health> health, std::weak_ptr<Transform> follow_target);
 
     void initialize() override;
-    void update(float delta_time) override;
+    void update() override;
     void render(glm::mat4 &transform) const override;
 
   private:

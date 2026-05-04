@@ -1,27 +1,25 @@
 #include "Clock.h"
 
-#include <chrono>
+#include "Utils/Time.h"
 
-Clock::Clock() : last_frame_(now()), frame_time_sum_(0)
+namespace
+{
+
+std::chrono::time_point<std::chrono::steady_clock> now()
+{
+    return std::chrono::steady_clock::now();
+}
+
+} // namespace
+
+Clock::Clock() : last_frame_(now())
 {
 }
 
-float Clock::tick()
+Duration Clock::tick()
 {
-    const Duration elapsed = now() - last_frame_;
-
-    frame_count_ += 1;
-    frame_time_sum_ += elapsed;
-
+    const auto elapsed = now() - last_frame_;
     last_frame_ = now();
 
-    return std::chrono::duration<float>(elapsed).count();
-}
-
-float Clock::getFps()
-{
-    const float fps = static_cast<float>(frame_count_) / std::chrono::duration<float>(frame_time_sum_).count();
-    frame_count_ = 0;
-    frame_time_sum_ = Duration(0);
-    return fps;
+    return Duration::seconds(std::chrono::duration<float>(elapsed).count());
 }

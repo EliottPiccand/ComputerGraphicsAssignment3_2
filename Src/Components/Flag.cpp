@@ -11,11 +11,11 @@ Flag::Flag(std::weak_ptr<resource::Texture> texture) : animation_time_(0.0f), te
 {
 }
 
-void Flag::update(float delta_time)
+void Flag::update()
 {
     ProfileScope;
 
-    animation_time_ += delta_time;
+    animation_time_ += Time::getDeltaTime();
 }
 
 void Flag::render(glm::mat4 &transform) const

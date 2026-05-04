@@ -12,6 +12,7 @@
 #include "Utils/Log.h"
 #include "Utils/Math.h"
 #include "Utils/Profiling.h"
+#include "Utils/Time.h"
 
 using namespace component;
 
@@ -59,19 +60,18 @@ glm::vec3 CannonController::getShootingInitialVelocity(const glm::vec3 &target) 
     return delta / t + 0.5f * GRAVITY * UP * t;
 }
 
-void CannonController::updateTarget(float delta_time)
+void CannonController::updateTarget()
 {
-    (void)delta_time;
 }
 
-void CannonController::update(float delta_time)
+void CannonController::update()
 {
     ProfileScope;
 
     constexpr const float RECOIL_AMPLITUDE = 0.3f; // m
     constexpr const float RECOIL_DECAY_INTENSITY = 0.9f;
 
-    updateTarget(delta_time);
+    updateTarget();
 
     target_transform_.lock()->setPosition(target_);
 
@@ -97,9 +97,9 @@ void CannonController::update(float delta_time)
     transform->rotate(target_angle - current_angle, UP);
 
     // Cannon barrel
-    if (recoil_ > delta_time * RECOIL_DECAY_INTENSITY)
+    if (recoil_ > Time::getDeltaTime() * RECOIL_DECAY_INTENSITY)
     {
-        recoil_ -= delta_time * RECOIL_DECAY_INTENSITY;
+        recoil_ -= Time::getDeltaTime() * RECOIL_DECAY_INTENSITY;
     }
     else
     {

@@ -1,20 +1,18 @@
 #include "Components/CannonAIController.h"
 
-#include <chrono>
-
 #include <Lib/OpenGL.h>
 
-#include "Singleton.h"
 #include "Utils/Constants.h"
 #include "Utils/Profiling.h"
 #include "Utils/Random.h"
+#include "Utils/Time.h"
 
 using namespace component;
 
 CannonAIController::CannonAIController(std::weak_ptr<Transform> cannon_barrel_transform,
                                        std::weak_ptr<Transform> target_transform,
                                        std::weak_ptr<Transform> target_target_transform)
-    : CannonController(cannon_barrel_transform, target_transform), last_fire_tick_(now()),
+    : CannonController(cannon_barrel_transform, target_transform), last_fire_tick_(Time::now()),
       target_target_transform_(target_target_transform)
 {
 }
@@ -45,16 +43,16 @@ void CannonAIController::pickTargetTarget()
     target_target_transform_.lock()->setPosition(target_target_);
 }
 
-void CannonAIController::updateTarget(float delta_time)
+void CannonAIController::updateTarget()
 {
     ProfileScope;
 
-    if (Singleton::physics_paused)
+    if (Time::paused)
         return;
 
     constexpr const float TARGET_REACH_RADIUS = 1.0f;  // m
     constexpr const float TARGET_MOVING_SPEED = 20.0f; // m/s
-    constexpr const Duration MIN_FIRE_INTERVAL = std::chrono::milliseconds(200);
+    constexpr const Duration MIN_FIRE_INTERVAL = Duration::milliseconds(200);
     constexpr const float FIRE_PROBABILITY_ON_EACH_TICK = 0.1f;
 
     if (glm::length(target_target_ - target_) < TARGET_REACH_RADIUS)
@@ -62,12 +60,12 @@ void CannonAIController::updateTarget(float delta_time)
         pickTargetTarget();
     }
 
-    target_ += glm::normalize(target_target_ - target_) * TARGET_MOVING_SPEED * delta_time;
+    target_ += glm::normalize(target_target_ - target_) * TARGET_MOVING_SPEED * Time::getDeltaTime();
     cannon_ball_initial_velocity_ = getShootingInitialVelocity(target_);
 
-    if (now() >= last_fire_tick_ + MIN_FIRE_INTERVAL)
+    if (Time::now() >= last_fire_tick_ + MIN_FIRE_INTERVAL)
     {
-        last_fire_tick_ = now();
+        last_fire_tick_ = Time::now();
 
         if (Random::random(0.0f, 1.0f) < FIRE_PROBABILITY_ON_EACH_TICK)
         {

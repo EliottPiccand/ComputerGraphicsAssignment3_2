@@ -15,7 +15,7 @@ class CannonPlayerController : public CannonController
     CannonPlayerController(std::weak_ptr<Transform> cannon_barrel_transform, std::weak_ptr<Transform> target_transform,
                            std::weak_ptr<Camera3D> camera);
 
-    void updateTarget(float delta_time) override;
+    void updateTarget() override;
 
   private:
     std::weak_ptr<Camera3D> camera_;

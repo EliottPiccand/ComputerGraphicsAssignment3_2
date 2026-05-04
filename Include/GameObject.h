@@ -22,7 +22,7 @@ class GameObject : public std::enable_shared_from_this<GameObject>
     GameObject();
 
     void initialize();
-    void update(float delta_time);
+    void update();
     void render(const glm::mat4 &transform = glm::mat4(1.0f)) const;
 
     GameObjectId getId() const;

@@ -15,7 +15,7 @@ class Flag : public Component
   public:
     Flag(std::weak_ptr<resource::Texture> texture);
 
-    void update(float delta_time) override;
+    void update() override;
     void render(glm::mat4 &transform) const override;
 
   private:

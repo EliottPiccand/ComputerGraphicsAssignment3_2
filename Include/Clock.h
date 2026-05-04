@@ -1,19 +1,16 @@
 #pragma once
 
+#include <chrono>
+
 #include "Utils/Time.h"
-#include <cstddef>
 
 class Clock
 {
   public:
     Clock();
 
-    [[nodiscard]] float tick();
-    [[nodiscard]] float getFps();
+    [[nodiscard]] Duration tick();
 
   private:
-    Instant last_frame_;
-
-    Duration frame_time_sum_;
-    size_t frame_count_ = 0;
+    std::chrono::time_point<std::chrono::steady_clock> last_frame_;
 };

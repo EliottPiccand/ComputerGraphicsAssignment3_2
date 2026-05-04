@@ -6,9 +6,8 @@ void Component::initialize()
 {
 }
 
-void Component::update(float delta_time)
+void Component::update()
 {
-    (void)delta_time;
 }
 
 void Component::render(glm::mat4 &transform) const

@@ -450,11 +450,9 @@ void Collider::initialize()
     Physics::addCollider(std::dynamic_pointer_cast<Collider>(Component::shared_from_this()), is_water_);
 }
 
-void Collider::update(float delta_time)
+void Collider::update()
 {
     ProfileScope;
-
-    (void)delta_time;
 
     const auto transform = transform_.lock()->resolve();
 

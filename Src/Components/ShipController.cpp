@@ -1,6 +1,5 @@
 #include "Components/ShipController.h"
 
-#include <chrono>
 #include <cstddef>
 #include <optional>
 #include <vector>
@@ -13,10 +12,13 @@
 #include "Utils/Random.h"
 #include "Utils/Time.h"
 
+constexpr const Duration FOAM_PARTICLE_SPAWN_INTERVAL = Duration::milliseconds(0.2f);
+
 using namespace component;
 
 ShipController::ShipController()
-    : speed_state_(SpeedState::Stopped), turn_state_(TurnState::None), turn_speed_(SHIP_TURN_STEP)
+    : speed_state_(SpeedState::Stopped), turn_state_(TurnState::None), turn_speed_(SHIP_TURN_STEP),
+      last_particle_spawn_(Time::now() - FOAM_PARTICLE_SPAWN_INTERVAL)
 {
 }
 
@@ -28,16 +30,13 @@ void ShipController::initialize()
     GET_COMPONENT(RigidBody, rigid_body_, ShipController);
 }
 
-void ShipController::update(float delta_time)
+void ShipController::update()
 {
     ProfileScope;
-
-    (void)delta_time;
 
     constexpr const glm::vec3 SHIP_FRONT = MODEL_FORWARD * 10.0f;
     constexpr const glm::vec3 SHIP_BACK = MODEL_BACKWARD * 11.0f;
 
-    constexpr const size_t FOAM_PARTICLE_COUNT = 50;
     constexpr const Color FOAM_PARTICLE_COLOR = color::WHITE;
     constexpr const float FOAM_PARTICLE_SPREAD = 2.0f; // m
 
@@ -91,14 +90,20 @@ void ShipController::update(float delta_time)
         const auto rotated_offset = transform->getRotation() * particle_offset.value();
         const auto offset = rotated_offset + rigid_body->getPosition();
 
-        std::vector<Particle> particles(FOAM_PARTICLE_COUNT);
+        const auto particle_count = static_cast<size_t>((Time::now() - last_particle_spawn_).toSeconds() /
+                                                        FOAM_PARTICLE_SPAWN_INTERVAL.toSeconds());
+        if (particle_count == 0)
+            return;
+        last_particle_spawn_ = Time::now();
+
+        std::vector<Particle> particles(particle_count);
         for (auto &particle : particles)
         {
             particle.color = FOAM_PARTICLE_COLOR;
             particle.position = offset + Random::direction() * Random::random(0.0f, FOAM_PARTICLE_SPREAD);
             particle.velocity = ZERO;
             particle.is_subject_to_gravity = true;
-            particle.life = toSeconds(std::chrono::milliseconds(Random::randint(500, 2500)));
+            particle.life = Random::random(0.05f, 0.5f);
             particle.scale = {0.3f, 0.3f};
         }
 

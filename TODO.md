@@ -49,6 +49,6 @@
 ## If time
 - ~~move textures in the assets/texture folder and fix models accordingly~~
 - fix copy_asset.py when ?
-- update every part using Instant or Duration to something not linked to the system clock, to properly be able to pause the game.
+- ~~update every part using Instant or Duration to something not linked to the system clock, to properly be able to pause the game.~~
 - readd debug view
 - add ResourceLoader collision name detection

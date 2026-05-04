@@ -18,9 +18,9 @@ class CannonController : public Component
     virtual ~CannonController() override = default;
 
     void initialize() override;
-    void update(float delta_time) override;
+    void update() override;
 
-    virtual void updateTarget(float delta_time);
+    virtual void updateTarget();
 
   protected:
     glm::vec3 getShootingInitialVelocity(const glm::vec3 &target) const;

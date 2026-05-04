@@ -1,7 +1,6 @@
 #include "Application.h"
 
 #include <array>
-#include <chrono>
 #include <numbers>
 #include <string_view>
 
@@ -137,12 +136,12 @@ constexpr const glm::vec3 RADAR_CONE_MODEL_ROTATION = {glm::radians(90.0f), 0.0f
 
 constexpr const glm::vec3 RADAR_POSITION = 1.5f * MODEL_LEFT + 9.0f * MODEL_BACKWARD + 6.05f * MODEL_UP;
 
-const component::Animation::Callback RADAR_ANIMATION =
-    [](float delta_time, std::shared_ptr<component::Transform> transform, std::shared_ptr<GameObject> game_object) {
-        (void)game_object;
-        constexpr const float ROTATION_SPEED = 2.0f * std::numbers::pi_v<float> / 3.0f;
-        transform->rotate(ROTATION_SPEED * delta_time, UP);
-    };
+const component::Animation::Callback RADAR_ANIMATION = [](std::shared_ptr<component::Transform> transform,
+                                                          std::shared_ptr<GameObject> game_object) {
+    (void)game_object;
+    constexpr const float ROTATION_SPEED = 2.0f * std::numbers::pi_v<float> / 3.0f;
+    transform->rotate(ROTATION_SPEED * Time::getDeltaTime(), UP);
+};
 
 constexpr const std::string_view ROCK_1_MODEL = "Rocks/Rock1.gltf";
 constexpr const std::string_view ROCK_2_MODEL = "Rocks/Rock2.gltf";
@@ -158,7 +157,7 @@ constexpr const float MESSAGE_HEIGHT = MESSAGE_WIDTH * 9.0f / 16.0f;
 constexpr const glm::vec3 MESSAGE_POSITION = UP * 60.0f;
 
 constexpr const std::string_view HIT_VIGNETTE = "Effects/HitVignette.png";
-constexpr const Duration HIT_VIGNETTE_DURATION = std::chrono::milliseconds(800);
+constexpr const Duration HIT_VIGNETTE_DURATION = Duration::milliseconds(800.0f);
 
 #pragma endregion model_settings
 
@@ -199,21 +198,21 @@ constexpr const float CANNON_BALL_MAX_DAMAGE = 15'000.0f;
 
 constexpr const float MAX_EXPLOSION_RAIDUS = 5.0f;            // m
 constexpr const float EXPLOSION_RADIUS_EXPANTION_RATE = 8.0f; // m/s
-constexpr const Duration EXPLOSION_MIN_HIT_DELAY = std::chrono::seconds(10);
-const component::Animation::Callback EXPLOSION_ANIMATION =
-    [](float delta_time, std::shared_ptr<component::Transform> transform, std::shared_ptr<GameObject> game_object) {
-        if (Singleton::physics_paused)
-            return;
+constexpr const Duration EXPLOSION_MIN_HIT_DELAY = Duration::seconds(10.0f);
+const component::Animation::Callback EXPLOSION_ANIMATION = [](std::shared_ptr<component::Transform> transform,
+                                                              std::shared_ptr<GameObject> game_object) {
+    if (Time::paused)
+        return;
 
-        const auto scale = transform->getScale();
-        auto radius = scale.x; // assume uniform scaling
+    const auto scale = transform->getScale();
+    auto radius = scale.x; // assume uniform scaling
 
-        radius += EXPLOSION_RADIUS_EXPANTION_RATE * delta_time;
-        transform->setScale(radius * ONE);
+    radius += EXPLOSION_RADIUS_EXPANTION_RATE * Time::getDeltaTime();
+    transform->setScale(radius * ONE);
 
-        if (radius >= MAX_EXPLOSION_RAIDUS)
-            EventQueue::post<event::DetachGameObject>(game_object->getId());
-    };
+    if (radius >= MAX_EXPLOSION_RAIDUS)
+        EventQueue::post<event::DetachGameObject>(game_object->getId());
+};
 
 static_assert(ENEMY_COUNT < SPAWN_LOCATIONS.size(), "not enough spawn location for every enemies");
 
@@ -225,7 +224,7 @@ constexpr const size_t PLOOF_PARTICLE_COUNT = 500;
 constexpr const float PLOOF_PARTICLE_SPAWN_RADIUS = 2.0f; // m
 constexpr const Color PLOOF_PARTICLE_INNER_COLOR = rgba(140, 188, 236, 0.81);
 constexpr const Color PLOOF_PARTICLE_OUTTER_COLOR = rgba(0, 102, 204, 0.6);
-constexpr const Duration PLOOF_PARTICLE_MAX_LIFETIME = std::chrono::seconds(3);
+constexpr const Duration PLOOF_PARTICLE_MAX_LIFETIME = Duration::seconds(3.0f);
 constexpr const float PLOOF_PARTICLE_VERTICALITY = 10.0f;
 constexpr const float PLOOF_PARTICLE_SPREAD = glm::radians(3.0f);
 constexpr const float PLOOF_PARTICLE_VELOCITY = 10.0f; // m/s
@@ -234,36 +233,45 @@ constexpr const size_t EXPLOSION_PARTICLE_COUNT = 2500;
 constexpr const Color EXPLOSION_PARTICLE_INNER_COLOR = rgba(220, 192, 70, 0.9);
 constexpr const Color EXPLOSION_PARTICLE_OUTTER_COLOR = rgba(252, 55, 29, 0.86);
 constexpr const Duration EXPLOSION_PARTICLE_MAX_LIFETIME =
-    std::chrono::milliseconds(static_cast<int>(MAX_EXPLOSION_RAIDUS / EXPLOSION_RADIUS_EXPANTION_RATE * 1000.0f));
+    Duration::seconds(MAX_EXPLOSION_RAIDUS / EXPLOSION_RADIUS_EXPANTION_RATE);
 constexpr const float EXPLOSION_PARTICLE_MAX_VELOCITY = 10.0f; // m/s
 
-constexpr const size_t CANNON_BALL_SPARK_PARTICLE_COUNT = 5;
-constexpr const Duration CANNON_BALL_SPARK_PARTICLE_MAX_LIFETIME = std::chrono::milliseconds(20);
+constexpr const Duration CANNON_BALL_SPARK_PARTICLE_SPAWN_INTERVAL = Duration::milliseconds(20.0f);
+constexpr const Duration CANNON_BALL_SPARK_PARTICLE_MAX_LIFETIME = Duration::milliseconds(20.0f);
 constexpr const float CANNON_BALL_SPARK_PARTICLE_SPREAD = glm::radians(20.0f);
 constexpr const Color CANNON_BALL_SPARK_PARTICLE_COLOR_1 = rgba(252, 233, 62, 1);
 constexpr const Color CANNON_BALL_SPARK_PARTICLE_COLOR_2 = rgba(255, 29, 29, 1);
-const component::Animation::Callback CANNON_BALL_SPARK_ANIMATION = [](float delta_time,
-                                                                      std::shared_ptr<component::Transform> transform,
-                                                                      std::shared_ptr<GameObject> game_object) {
-    (void)delta_time;
 
-    const auto rigid_body = game_object->getComponent<component::RigidBody>().value();
-    const auto backward = -getForwardVector(transform->getRotation());
-    const auto position = glm::vec3(transform->resolve()[3]) + backward * 0.3f + Random::direction() * 0.05f;
+const auto CANNON_BALL_SPARK_ANIMATION_FACTORY = [] {
+    const component::Animation::Callback animation_callback =
+        [last_spawn = Time::now() - CANNON_BALL_SPARK_PARTICLE_SPAWN_INTERVAL](
+            std::shared_ptr<component::Transform> transform, std::shared_ptr<GameObject> game_object) mutable {
+            const auto rigid_body = game_object->getComponent<component::RigidBody>().value();
+            const auto backward = -getForwardVector(transform->getRotation());
+            const auto position = glm::vec3(transform->resolve()[3]) + backward * 0.3f + Random::direction() * 0.05f;
 
-    std::vector<Particle> particles(CANNON_BALL_SPARK_PARTICLE_COUNT);
-    for (auto &particle : particles)
-    {
-        particle.position = position;
-        particle.velocity = Random::direction(backward, CANNON_BALL_SPARK_PARTICLE_SPREAD) + rigid_body->getVelocity();
-        particle.color = glm::mix(CANNON_BALL_SPARK_PARTICLE_COLOR_1, CANNON_BALL_SPARK_PARTICLE_COLOR_2,
-                                  Random::random(0.0f, 1.0f));
-        particle.life = toSeconds(CANNON_BALL_SPARK_PARTICLE_MAX_LIFETIME);
-        particle.is_subject_to_gravity = true;
-        particle.scale = {0.1f, 0.1f};
-    }
+            const auto particle_count = static_cast<size_t>((Time::now() - last_spawn).toSeconds() /
+                                                            CANNON_BALL_SPARK_PARTICLE_SPAWN_INTERVAL.toSeconds());
+            if (particle_count == 0)
+                return;
+            last_spawn = Time::now();
 
-    ParticleSystem::addParticles(particles);
+            std::vector<Particle> particles(particle_count);
+            for (auto &particle : particles)
+            {
+                particle.position = position;
+                particle.velocity =
+                    Random::direction(backward, CANNON_BALL_SPARK_PARTICLE_SPREAD) + rigid_body->getVelocity();
+                particle.color = glm::mix(CANNON_BALL_SPARK_PARTICLE_COLOR_1, CANNON_BALL_SPARK_PARTICLE_COLOR_2,
+                                          Random::random(0.0f, 1.0f));
+                particle.life = CANNON_BALL_SPARK_PARTICLE_MAX_LIFETIME.toSeconds();
+                particle.is_subject_to_gravity = true;
+                particle.scale = {0.1f, 0.1f};
+            }
+
+            ParticleSystem::addParticles(particles);
+        };
+    return animation_callback;
 };
 
 #pragma endregion particles_settings
@@ -366,6 +374,7 @@ Application::Application() : should_close_(false), free_view_override_(false)
 {
     ProfileScope;
 
+    Time::initialize();
     Random::initialize();
 
     window_ = std::make_unique<Window>();
@@ -386,7 +395,7 @@ Application::Application() : should_close_(false), free_view_override_(false)
     Input::bindKey(Input::Action::DebugMoveTargetWest, GLFW_KEY_LEFT);
     Input::bindKey(Input::Action::DebugAimAndFire, GLFW_KEY_F);
     Input::bindKey(Input::Action::CycleCameras, GLFW_KEY_V);
-    Input::bindKey(Input::Action::TogglePhysics, GLFW_KEY_P);
+    Input::bindKey(Input::Action::PauseTime, GLFW_KEY_P);
     Input::bindKey(Input::Action::RestartGame, GLFW_KEY_G);
     Input::bindKey(Input::Action::QuitGame, GLFW_KEY_ESCAPE);
 
@@ -714,7 +723,7 @@ Application::Application() : should_close_(false), free_view_override_(false)
                         particle.velocity = Random::random(PLOOF_PARTICLE_VELOCITY / 5.0f, PLOOF_PARTICLE_VELOCITY) *
                                             Random::direction(glm::normalize(offset + UP * PLOOF_PARTICLE_VERTICALITY),
                                                               PLOOF_PARTICLE_SPREAD);
-                        particle.life = toSeconds(PLOOF_PARTICLE_MAX_LIFETIME);
+                        particle.life = PLOOF_PARTICLE_MAX_LIFETIME.toSeconds();
                         particle.color = glm::mix(PLOOF_PARTICLE_INNER_COLOR, PLOOF_PARTICLE_OUTTER_COLOR,
                                                   std::sqrt(radius / PLOOF_PARTICLE_SPAWN_RADIUS));
                         particle.is_subject_to_gravity = true;
@@ -746,7 +755,7 @@ Application::Application() : should_close_(false), free_view_override_(false)
 
                         particle.position = cannon_ball_position;
                         particle.velocity = t * EXPLOSION_PARTICLE_MAX_VELOCITY * Random::direction();
-                        particle.life = toSeconds(EXPLOSION_PARTICLE_MAX_LIFETIME);
+                        particle.life = EXPLOSION_PARTICLE_MAX_LIFETIME.toSeconds();
                         particle.color = glm::mix(EXPLOSION_PARTICLE_INNER_COLOR, EXPLOSION_PARTICLE_OUTTER_COLOR, t);
                         particle.is_subject_to_gravity = false;
                         particle.scale = {0.8f, 0.8f};
@@ -770,23 +779,21 @@ Application::Application() : should_close_(false), free_view_override_(false)
                                                               CANNON_BALL_MODEL_SCALE);
         cannon_ball_model->addComponent<component::ModelInstance>(
             ResourceLoader::getAsset<resource::Model>(CANNON_BALL_MODEL));
-        cannon_ball_model->addComponent<component::Animation>([](float delta_time,
-                                                                 std::shared_ptr<component::Transform> transform,
-                                                                 std::shared_ptr<GameObject> game_object) {
-            (void)delta_time;
-            (void)game_object;
+        cannon_ball_model->addComponent<component::Animation>(
+            [](std::shared_ptr<component::Transform> transform, std::shared_ptr<GameObject> game_object) {
+                (void)game_object;
 
-            if (Singleton::view == View::Top)
-            {
-                transform->setScale(CANNON_BALL_TOP_VIEW_SCALE_FACTOR * CANNON_BALL_MODEL_SCALE);
-            }
-            else
-            {
-                transform->setScale(CANNON_BALL_MODEL_SCALE);
-            }
-        });
+                if (Singleton::view == View::Top)
+                {
+                    transform->setScale(CANNON_BALL_TOP_VIEW_SCALE_FACTOR * CANNON_BALL_MODEL_SCALE);
+                }
+                else
+                {
+                    transform->setScale(CANNON_BALL_MODEL_SCALE);
+                }
+            });
 
-        cannon_ball->addComponent<component::Animation>(CANNON_BALL_SPARK_ANIMATION);
+        cannon_ball->addComponent<component::Animation>(CANNON_BALL_SPARK_ANIMATION_FACTORY());
 
         if (event.shooter == player_id_)
         {
@@ -928,7 +935,7 @@ void Application::run()
 {
     while (!(window_->shouldClose() || should_close_))
     {
-        const float delta_time = clock_.tick();
+        const float delta_time = clock_.tick().toSeconds();
         if (delta_time > 1.0f)
         {
             continue;
@@ -974,6 +981,7 @@ void Application::update(float delta_time)
 {
     ProfileScope;
 
+    Time::update(delta_time);
     Input::update();
 
     if (Input::getState(Input::Action::ToggleFullScreen) == Input::State::JustReleased)
@@ -1053,9 +1061,9 @@ void Application::update(float delta_time)
             break;
         }
     }
-    if (Input::getState(Input::Action::TogglePhysics) == Input::State::JustReleased)
+    if (Input::getState(Input::Action::PauseTime) == Input::State::JustReleased)
     {
-        Singleton::physics_paused = !Singleton::physics_paused;
+        Time::paused = !Time::paused;
     }
     if (Input::getState(Input::Action::RestartGame) == Input::State::JustReleased)
     {
@@ -1070,14 +1078,10 @@ void Application::update(float delta_time)
 
     EventQueue::processAll();
 
-    component::Camera3D::updateEffect(delta_time);
-    scene_root_->update(delta_time);
-
-    if (!Singleton::physics_paused)
-    {
-        Physics::update(delta_time);
-        ParticleSystem::update(delta_time);
-    }
+    component::Camera3D::updateEffect();
+    scene_root_->update();
+    Physics::update();
+    ParticleSystem::update();
 }
 
 void Application::render() const

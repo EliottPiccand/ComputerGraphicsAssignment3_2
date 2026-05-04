@@ -35,7 +35,7 @@ class Input
         DebugMoveTargetWest,
         DebugAimAndFire,
         CycleCameras,
-        TogglePhysics,
+        PauseTime,
         RestartGame,
         QuitGame,
     };

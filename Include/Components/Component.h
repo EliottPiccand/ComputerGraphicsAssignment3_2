@@ -15,7 +15,7 @@ class Component : public std::enable_shared_from_this<Component>
     virtual ~Component() = default;
 
     virtual void initialize();
-    virtual void update(float delta_time);
+    virtual void update();
     virtual void render(glm::mat4 &transform) const;
 
     void setOwner(std::shared_ptr<GameObject> game_object);

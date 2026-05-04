@@ -20,7 +20,7 @@ class CannonAIController : public CannonController
     void initialize() override;
 
     void pickTargetTarget();
-    void updateTarget(float delta_time) override;
+    void updateTarget() override;
 
   private:
     Instant last_fire_tick_;

@@ -16,7 +16,7 @@ class Attack : public Component
   public:
     Attack(float min_damages, float max_damages, Duration min_hit_delay);
 
-    void update(float delta_time) override;
+    void update() override;
     void dealDamages(std::shared_ptr<Health> to);
 
   private:
