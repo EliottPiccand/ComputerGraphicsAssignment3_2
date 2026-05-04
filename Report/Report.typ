@@ -102,7 +102,8 @@ Our program contains several features, including:
 // custom additional goals
 - water splash;
 - sparks on cannon balls;
-- red vignette on player hit.
+- red vignette on player hit;
+- smoke at the tip of the cannon barrel after firing.
 
 and some features not visible by the players, but useful for development:
 - hierarchical system;
@@ -340,9 +341,8 @@ Otherwise, they would be too small and only appear as a 1 pixel wide black dot.
 === Red Vignette on Player Hit
 Whenever the player gets hit, a red vignette effect covers the screen for a small duration (see @fig:red-vignette).
 
-=== Debug Mode
-Not really a player-oriented feature, but we added a debug mode to the game (it can be toggled by clicking `F3`) to display useful debug information such as:
-- perspective cameras (see @fig:camera).
+=== Smoke at the Tip of the Cannon Barrel after Firing
+Whenever a ship (player or enemies) fires a cannon ball, a small cloud of smoke exit the cannon barrel. 
 
 = End-user guide
 The game starts immediately on running the executable.
