@@ -1712,7 +1712,7 @@
 		{
 			"mimeType":"image/png",
 			"name":"SailsRopeMetallicSmoothness",
-			"uri":"Ship/SailsRopeMetallicSmoothness.png"
+			"uri":"Ship/SailsRopeMetallicRoughness.png"
 		},
 		{
 			"mimeType":"image/png",
@@ -1727,7 +1727,7 @@
 		{
 			"mimeType":"image/png",
 			"name":"MastsMetallicSmoothness",
-			"uri":"Ship/MastsMetallicSmoothness.png"
+			"uri":"Ship/MastsMetallicRoughness.png"
 		},
 		{
 			"mimeType":"image/png",
@@ -1742,7 +1742,7 @@
 		{
 			"mimeType":"image/png",
 			"name":"ElementsMetallicSmoothness",
-			"uri":"Ship/ElementsMetallicSmoothness.png"
+			"uri":"Ship/ElementsMetallicRoughness.png"
 		},
 		{
 			"mimeType":"image/png",
@@ -1757,7 +1757,7 @@
 		{
 			"mimeType":"image/png",
 			"name":"ShipHullMetallicSmoothness",
-			"uri":"Ship/ShipHullMetallicSmoothness.png"
+			"uri":"Ship/ShipHullMetallicRoughness.png"
 		},
 		{
 			"mimeType":"image/png",
@@ -1772,7 +1772,7 @@
 		{
 			"mimeType":"image/png",
 			"name":"DecksMetallicSmoothness",
-			"uri":"Ship/DecksMetallicSmoothness.png"
+			"uri":"Ship/DecksMetallicRoughness.png"
 		}
 	],
 	"accessors":[

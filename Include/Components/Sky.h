@@ -27,6 +27,7 @@ class Sky : public Component
     static inline constexpr GLsizei IRRADIANCE_MAP_SIZE = 32;
     static inline constexpr GLsizei PREFILTER_MAP_SIZE = 128;
     static inline constexpr GLsizei BRDF_LUT_SIZE = 512;
+    static inline constexpr int ENVIRONMENT_MIP_LEVEL_COUNT = 10;  // floor(log2(512)) + 1
     static inline constexpr int PREFILTER_MIP_LEVEL_COUNT = 5;
 
     static inline GLuint environment_cubemap_ = 0;

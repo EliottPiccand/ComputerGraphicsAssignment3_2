@@ -23,6 +23,7 @@ void main()
 {
     vec3 dir = normalize(out_LocalPos);
     vec3 equirectDir = vec3(dir.x, dir.z, -dir.y);
-    vec3 hdr = texture(u_EquirectangularMap, sampleEquirect(equirectDir)).rgb;
+    vec2 uv = sampleEquirect(equirectDir);
+    vec3 hdr = texture(u_EquirectangularMap, uv).rgb;
     out_Color = vec4(hdr, 1.0);
 }

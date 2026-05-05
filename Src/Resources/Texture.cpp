@@ -141,3 +141,8 @@ Texture::Type Texture::getType() const
 {
     return type_;
 }
+
+GLuint Texture::getID() const
+{
+    return id_;
+}

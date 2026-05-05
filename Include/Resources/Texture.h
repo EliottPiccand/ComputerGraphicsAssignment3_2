@@ -34,6 +34,7 @@ class Texture
 
     void bind(GLenum slot, std::shared_ptr<resource::Shader> shader, const char *uniform_slot) const;
     [[nodiscard]] Type getType() const;
+    [[nodiscard]] GLuint getID() const;
 
   private:
     const Type type_;

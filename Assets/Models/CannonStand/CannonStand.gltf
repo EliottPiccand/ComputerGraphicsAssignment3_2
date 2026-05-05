@@ -109,7 +109,7 @@
 		{
 			"mimeType":"image/png",
 			"name":"PropsMetallicSmoothness",
-			"uri":"Cannon/PropsMetallicSmoothness.png"
+			"uri":"Cannon/PropsMetallicRoughness.png"
 		}
 	],
 	"accessors":[
