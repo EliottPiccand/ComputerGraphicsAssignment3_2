@@ -4,7 +4,6 @@
 		"version":"2.0"
 	},
 	"extensionsUsed":[
-		"KHR_materials_specular"
 	],
 	"scene":0,
 	"scenes":[
@@ -26,14 +25,6 @@
 			"alphaMode":"BLEND",
 			"doubleSided":true,
 			"extensions":{
-				"KHR_materials_specular":{
-					"specularFactor":0,
-					"specularColorFactor":[
-						0.8999999761581421,
-						0.8999999761581421,
-						0.8999999761581421
-					]
-				}
 			},
 			"name":"Rock3",
 			"pbrMetallicRoughness":{

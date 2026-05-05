@@ -12,8 +12,7 @@ namespace component
 class CannonPlayerController : public CannonController
 {
   public:
-    CannonPlayerController(std::weak_ptr<Transform> cannon_barrel_transform, std::weak_ptr<Transform> target_transform,
-                           std::weak_ptr<Camera3D> camera);
+    CannonPlayerController(std::weak_ptr<Transform> cannon_barrel_transform, std::weak_ptr<Camera3D> camera);
 
     void updateTarget() override;
 

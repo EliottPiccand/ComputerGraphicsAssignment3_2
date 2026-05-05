@@ -6,12 +6,13 @@
 
 #include "Events/EventQueue.h"
 #include "Events/WindowResized.h"
-#include "Mesh/Mesh.h"
+#include "GameObject.h" // IWYU pragma: keep
 #include "Resources/ResourceLoader.h"
 #include "Utils/Constants.h"
 #include "Utils/Math.h"
 #include "Utils/Profiling.h"
 #include "Utils/Random.h"
+
 
 using namespace component;
 
@@ -38,8 +39,6 @@ void Camera3D::initialize(std::vector<std::weak_ptr<resource::Shader>> shaders)
         [](const event::WindowResized &event) { onViewportResize(event.width, event.height); });
 
     shaders_ = shaders;
-    effect_model_ =
-        ResourceLoader::getOrFactoryLoad<resource::Model>("Effect", [] { return std::make_tuple(generateQuad()); });
 }
 
 void Camera3D::initialize()
@@ -47,15 +46,6 @@ void Camera3D::initialize()
     ProfileScope;
 
     GET_COMPONENT(Transform, transform_, Camera3D);
-
-    if (std::holds_alternative<Perspective>(data_))
-    {
-        const auto perspective = std::get<Perspective>(data_);
-        debug_frustrum_ = ResourceLoader::getOrFactoryLoad<resource::Model>(
-            std::format("FrustrumN{:.3f}Fov{:.3f}", perspective.near, perspective.fov),
-            [](double near, double fov) { return std::make_tuple(generateFrustrum(near, fov)); }, perspective.near,
-            perspective.fov);
-    }
 }
 
 void Camera3D::onViewportResize(uint32_t width, uint32_t height)
@@ -67,9 +57,14 @@ void Camera3D::onViewportResize(uint32_t width, uint32_t height)
 
 void Camera3D::displayEffect(std::shared_ptr<resource::Texture> texture, Duration duration)
 {
-    effect_ = {{
-        {0, {{resource::Texture::Type::Albedo, texture}}},
-    }};
+    effect_ = {
+        {
+            0,
+            {
+                .albedo_texture = texture,
+            },
+        },
+    };
     effect_duration_ = duration;
     effect_start_time_ = Time::now();
 }
@@ -118,7 +113,8 @@ void Camera3D::renderEffect() const
     ProfileScope;
     ProfileScopeGPU("Camera3D::renderEffect");
 
-    static std::weak_ptr weak_shader = ResourceLoader::getAsset<resource::Shader>("UI");
+    static std::weak_ptr model = ResourceLoader::get<resource::Model>("Effect");
+    static std::weak_ptr weak_shader = ResourceLoader::get<resource::Shader>("UI");
 
     if (effect_.size() == 0)
         return;
@@ -126,14 +122,8 @@ void Camera3D::renderEffect() const
     if (!display_effects_)
         return;
 
-    const GLboolean depth_test_was_enabled = glIsEnabled(GL_DEPTH_TEST);
-    const GLboolean cull_face_was_enabled = glIsEnabled(GL_CULL_FACE);
-    GLboolean depth_write_was_enabled = GL_TRUE;
-    glGetBooleanv(GL_DEPTH_WRITEMASK, &depth_write_was_enabled);
-
-    glDisable(GL_DEPTH_TEST);
-    glDepthMask(GL_FALSE);
-    glDisable(GL_CULL_FACE);
+    SCOPE_DISABLE(GL_DEPTH_TEST);
+    SCOPE_DISABLE(GL_CULL_FACE);
 
     auto shader = weak_shader.lock();
     shader->bind();
@@ -141,17 +131,6 @@ void Camera3D::renderEffect() const
     shader->setUniform("u_Alpha", std::sqrt(std::sqrt(1.0f - (Time::now() - effect_start_time_).toSeconds() /
                                                                  effect_duration_.toSeconds())));
     effect_model_.lock()->draw(shader, effect_);
-
-    if (cull_face_was_enabled)
-        glEnable(GL_CULL_FACE);
-    else
-        glDisable(GL_CULL_FACE);
-
-    glDepthMask(depth_write_was_enabled);
-    if (depth_test_was_enabled)
-        glEnable(GL_DEPTH_TEST);
-    else
-        glDisable(GL_DEPTH_TEST);
 }
 
 glm::vec3 Camera3D::getPosition() const
@@ -209,6 +188,9 @@ void Camera3D::bind() const
         shader->setUniform("u_Projection", projection);
         shader->setUniform("u_View", view);
         shader->setUniform("u_CameraPosition", eye);
+
+        shader->setUniform("u_WorldEast", EAST);
+        shader->setUniform("u_WorldNorth", NORTH);
         shader->setUniform("u_WorldUp", UP);
     }
 }

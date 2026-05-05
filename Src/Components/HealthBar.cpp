@@ -1,7 +1,5 @@
 #include "Components/HealthBar.h"
 
-#include <tuple>
-
 #include <Lib/OpenGL.h>
 #include <Lib/glm.h>
 
@@ -48,10 +46,8 @@ void HealthBar::render(glm::mat4 &transform) const
     constexpr const float HEALTH_BAR_HEIGHT = 1.0f;
     constexpr const float HEALTH_BAR_BORDER_WIDTH = 0.5f;
 
-    static std::weak_ptr weak_shader = ResourceLoader::getAsset<resource::Shader>("WorldColor");
-    static std::weak_ptr model = ResourceLoader::getOrFactoryLoad<resource::Model>("HealBar", []{
-        return std::make_tuple(generateQuad());
-    });
+    static std::weak_ptr weak_shader = ResourceLoader::get<resource::Shader>("WorldColor");
+    static std::weak_ptr model = ResourceLoader::get<resource::Model>("HealBar");
 
     auto shader = weak_shader.lock();
     shader->bind();

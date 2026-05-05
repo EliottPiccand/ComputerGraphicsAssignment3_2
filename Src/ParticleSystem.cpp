@@ -1,9 +1,8 @@
 #include "ParticleSystem.h"
 
-#include <tuple>
 #include <utility>
 
-#include "Mesh/Vertex/VertexParticle.h"
+#include "Lib/OpenGL.h"
 #include "Resources/ComputeShader.h"
 #include "Resources/Model.h"
 #include "Resources/ResourceLoader.h"
@@ -65,7 +64,7 @@ void ParticleSystem::update()
 
     constexpr const auto GRAVITY_ACCELERATION = GRAVITY * DOWN;
 
-    static std::weak_ptr weak_compute_shader = ResourceLoader::getAsset<resource::ComputeShader>("Particle.comp");
+    static std::weak_ptr weak_compute_shader = ResourceLoader::get<resource::ComputeShader>("Particle");
     auto compute_shader = weak_compute_shader.lock();
 
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo_input_);
@@ -101,27 +100,8 @@ void ParticleSystem::render()
     ProfileScope;
     ProfileScopeGPU("ParticleSystem::render");
 
-    static std::weak_ptr weak_shader = ResourceLoader::getAsset<resource::Shader>("Particle");
-    static std::weak_ptr model = ResourceLoader::getOrFactoryLoad<resource::Model>("ParticleModel", [] {
-        const std::vector<VertexParticle> vertices = {
-            {
-                .position = {0.0f, 0.5f},
-            },
-            {
-                .position = {-0.5f, 0.0f},
-            },
-            {
-                .position = {0.5f, 0.0f},
-            },
-            {
-                .position = {0.0f, -0.5f},
-            },
-        };
-
-        const std::vector<IndexType> indices = {1, 0, 2, 1, 2, 3};
-
-        return std::make_tuple(Mesh{vertices, indices});
-    });
+    static std::weak_ptr weak_shader = ResourceLoader::get<resource::Shader>("Particle");
+    static std::weak_ptr model = ResourceLoader::get<resource::Model>("Particle");
 
     auto shader = weak_shader.lock();
     shader->bind();
@@ -129,12 +109,7 @@ void ParticleSystem::render()
 
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo_input_);
 
-    GLboolean depth_write_was_enabled = GL_TRUE;
-    glGetBooleanv(GL_DEPTH_WRITEMASK, &depth_write_was_enabled);
-
-    glDepthMask(GL_FALSE);
+    SCOPE_DEPTH_MASK(GL_FALSE);
 
     model.lock()->drawInstanced(shader, static_cast<size_t>(particle_count_));
-
-    glDepthMask(depth_write_was_enabled);
 }

@@ -5,6 +5,7 @@
 #include <Lib/glm.h>
 
 #include "Components/Component.h"
+#include "Resources/Model.h"
 #include "Resources/Texture.h"
 
 namespace component
@@ -13,6 +14,8 @@ namespace component
 class Flag : public Component
 {
   public:
+    static constexpr const float WIDTH = 3.0f;
+
     Flag(std::weak_ptr<resource::Texture> texture);
 
     void update() override;
@@ -21,7 +24,7 @@ class Flag : public Component
   private:
     float animation_time_;
 
-    std::weak_ptr<resource::Texture> texture_;
+    resource::Model::MaterialsOverride materials_override_;
 };
 
 } // namespace component

@@ -92,3 +92,4 @@ git checkout v0.13.1
 - Cannon ball model : [Ball Pack by _YounGen Tech_](https://assetstore.unity.com/packages/3d/props/ball-pack-446)
 - Rocks : [Fantasy landscape by 
 _Pxltiger_](https://assetstore.unity.com/packages/3d/environments/fantasy-landscape-103573)
+- SkyBox : [Free HDR Sky by _ProAssets_](https://assetstore.unity.com/packages/2d/textures-materials/sky/free-hdr-sky-61217)

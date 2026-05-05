@@ -13,8 +13,14 @@ STRUCTS = {
     "Particle": (
         INCLUDE_DIR / "ParticleSystem.h",
         [
-            SHADER_DIR / "Particle.comp",
+            SHADER_DIR / "Compute" / "Particle.comp",
             SHADER_DIR / "Particle.vert",
+        ],
+    ),
+    "DirectionalLight": (
+        INCLUDE_DIR / "Components" / "DirectionalLight.h",
+        [
+            SHADER_DIR / "PBR.frag",
         ],
     ),
 }

@@ -142,16 +142,16 @@ Window::Window() : is_full_screen_(false)
             {
                 LOG_ERROR("OpenGL {} {} [{} / id {}]: {}", glDebugSourceName(source), glDebugTypeName(type),
                           glDebugSeverityName(severity), id, text);
+
+#if defined(__GNUC__) || defined(__clang__)
+                __builtin_trap();
+#endif
             }
             else
             {
                 LOG_WARNING("OpenGL {} {} [{} / id {}]: {}", glDebugSourceName(source), glDebugTypeName(type),
                             glDebugSeverityName(severity), id, text);
             }
-
-#if defined(__GNUC__) || defined(__clang__)
-            __builtin_trap();
-#endif
         },
         nullptr);
 #endif

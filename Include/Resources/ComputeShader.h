@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <memory>
+#include <string_view>
 
 #include <Lib/OpenGL.h>
 #include <Lib/glm.h>
@@ -14,7 +15,10 @@ namespace resource
 class ComputeShader : public Shader
 {
   public:
-    [[nodiscard]] static std::shared_ptr<ComputeShader> loadFromFile(const std::filesystem::path &path);
+    static inline constexpr const std::string_view DIRECTORY = "Shaders/Compute";
+
+    [[nodiscard]] static std::shared_ptr<ComputeShader> load(const std::filesystem::path &path,
+                                                             const Defines defines = {});
 };
 
 } // namespace resource

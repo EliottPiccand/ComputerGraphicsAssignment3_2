@@ -40,7 +40,7 @@ void Water::render(glm::mat4 &transform) const
     ProfileScope;
     ProfileScopeGPU("Water::render");
 
-    static std::weak_ptr weak_shader = ResourceLoader::getAsset<resource::Shader>("Water");
+    static std::weak_ptr weak_shader = ResourceLoader::get<resource::Shader>("Water");
 
     auto shader = weak_shader.lock();
     shader->bind();

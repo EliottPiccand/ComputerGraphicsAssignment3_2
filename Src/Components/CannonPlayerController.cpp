@@ -15,9 +15,8 @@
 using namespace component;
 
 CannonPlayerController::CannonPlayerController(std::weak_ptr<Transform> cannon_barrel_transform,
-                                               std::weak_ptr<Transform> target_transform,
                                                std::weak_ptr<Camera3D> camera)
-    : CannonController(cannon_barrel_transform, target_transform), camera_(camera)
+    : CannonController(cannon_barrel_transform), camera_(camera)
 {
     Input::bindMouseButton(Input::Action::AimAndFire, GLFW_MOUSE_BUTTON_LEFT);
     Input::bindMouseButton(Input::Action::CancelFire, GLFW_MOUSE_BUTTON_RIGHT);
@@ -71,8 +70,6 @@ void CannonPlayerController::updateTarget()
     }
     else
     {
-        target = glm::vec3(target_transform_.lock()->resolve()[3]);
-
         if (glm::length(target_motion) > EPSILON)
         {
             target += glm::normalize(target_motion) * DEBUG_TARGET_SPEED * Time::getDeltaTime();

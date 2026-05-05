@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <string_view>
 #include <unordered_map>
 #include <vector>
@@ -27,13 +28,32 @@ class Model
   public:
     static inline constexpr const std::string_view DIRECTORY = "Models";
 
-    using TextureOverride =
-        std::unordered_map<size_t, std::unordered_map<Texture::Type, std::shared_ptr<resource::Texture>>>;
+    struct MaterialOverride
+    {
+        // clang-format off
+        std::optional<Color> albedo_color                                   = std::nullopt;
+        std::optional<std::weak_ptr<Texture>> albedo_texture                = std::nullopt;
+
+        /// 0 → 1 = Dielectric → Metal
+        std::optional<float> metallic_factor                                = std::nullopt;
+        /// 0 → 1 = Mirror → Matte
+        std::optional<float> roughness_factor                               = std::nullopt;
+        /// R: unused | G: roughness | B: metallic
+        std::optional<std::weak_ptr<Texture>> metallic_roughness_texture    = std::nullopt;
+
+        std::optional<std::weak_ptr<Texture>> normal_map                    = std::nullopt;
+
+        std::optional<Color> emissive_color                                 = std::nullopt;
+        std::optional<std::weak_ptr<Texture>> emissive_texture              = std::nullopt;
+        // clang-format on
+    };
+
+    using MaterialsOverride = std::unordered_map<size_t, MaterialOverride>;
 
     Model(GLuint vertex_array, GLuint vertex_buffer, std::vector<Shape> meshes);
     ~Model();
 
-    [[nodiscard]] static std::shared_ptr<Model> loadFromFile(const std::filesystem::path &path);
+    [[nodiscard]] static std::shared_ptr<Model> load(const std::filesystem::path &path);
 
     template <Vertex T>
     [[nodiscard]]
@@ -42,23 +62,27 @@ class Model
     void bind() const;
     [[nodiscard]] GLsizei getIndexCount() const;
 
-    void draw(std::shared_ptr<resource::Shader> shader, TextureOverride texture_override = {}) const;
+    void draw(std::shared_ptr<resource::Shader> shader, MaterialsOverride materials_override = {}) const;
     void drawInstanced(std::shared_ptr<resource::Shader> shader, size_t intance_count,
-                       TextureOverride texture_override = {}) const;
+                       MaterialsOverride materials_override = {}) const;
 
   private:
     struct Material
     {
-        std::shared_ptr<Texture> base_color_texture = nullptr;
-        std::shared_ptr<Texture> metallic_roughness_texture = nullptr;
-        std::shared_ptr<Texture> normal_texture = nullptr;
-        std::shared_ptr<Texture> emissive_texture = nullptr;
-        std::shared_ptr<Texture> ambient_occlusion_texture = nullptr;
+        Color albedo_color = color::WHITE;
+        std::weak_ptr<Texture> albedo_texture = std::shared_ptr<Texture>(nullptr);
 
-        Color base_color = color::WHITE;
+        /// 0 → 1 = Dielectric → Metal
         float metallic_factor = 1.0f;
+        /// 0 → 1 = Mirror → Matte
         float roughness_factor = 1.0f;
+        /// R: unused | G: roughness | B: metallic
+        std::weak_ptr<Texture> metallic_roughness_texture = std::shared_ptr<Texture>(nullptr);
+
+        std::weak_ptr<Texture> normal_map = std::shared_ptr<Texture>(nullptr);
+
         Color emissive_color = color::TRANSPARENT;
+        std::weak_ptr<Texture> emissive_texture = std::shared_ptr<Texture>(nullptr);
     };
 
     struct Shape
@@ -72,6 +96,9 @@ class Model
     const GLuint vertex_buffer_;
 
     const std::vector<Shape> shapes_;
+
+    void drawInner(std::shared_ptr<resource::Shader> shader, MaterialsOverride materials_override,
+                   std::optional<size_t> intance_count) const;
 };
 
 template <Vertex T> std::shared_ptr<Model> Model::load(const Mesh<T> &mesh, const Color &color)
@@ -102,7 +129,7 @@ template <Vertex T> std::shared_ptr<Model> Model::load(const Mesh<T> &mesh, cons
         .index_count = static_cast<GLsizei>(indices.size()),
         .material =
             {
-                .base_color = color,
+                .albedo_color = color,
             },
     });
 
