@@ -8,10 +8,14 @@
 #include "Components/Collider.h"
 #include "Events/EventQueue.h"
 #include "Events/Fire.h"
+#include "ParticleSystem.h"
 #include "Utils/Constants.h"
 #include "Utils/Log.h"
 #include "Utils/Math.h"
 #include "Utils/Profiling.h"
+#include "Utils/Random.h"
+#include "Utils/Time.h"
+#include "glm/geometric.hpp"
 
 using namespace component;
 
@@ -57,19 +61,18 @@ glm::vec3 CannonController::getShootingInitialVelocity(const glm::vec3 &target) 
     return delta / t + 0.5f * GRAVITY * UP * t;
 }
 
-void CannonController::updateTarget(float delta_time)
+void CannonController::updateTarget()
 {
-    (void)delta_time;
 }
 
-void CannonController::update(float delta_time)
+void CannonController::update()
 {
     ProfileScope;
 
     constexpr const float RECOIL_AMPLITUDE = 0.3f; // m
     constexpr const float RECOIL_DECAY_INTENSITY = 0.9f;
 
-    updateTarget(delta_time);
+    updateTarget();
 
     auto transform = transform_.lock();
     auto barrel_transform = barrel_transform_.lock();
@@ -93,9 +96,9 @@ void CannonController::update(float delta_time)
     transform->rotate(target_angle - current_angle, UP);
 
     // Cannon barrel
-    if (recoil_ > delta_time * RECOIL_DECAY_INTENSITY)
+    if (recoil_ > Time::getDeltaTime() * RECOIL_DECAY_INTENSITY)
     {
-        recoil_ -= delta_time * RECOIL_DECAY_INTENSITY;
+        recoil_ -= Time::getDeltaTime() * RECOIL_DECAY_INTENSITY;
     }
     else
     {
@@ -113,7 +116,8 @@ void CannonController::update(float delta_time)
 
     if (fired_)
     {
-        const auto cannon_ball_position = glm::vec3(barrel_transform->resolve()[3]);
+        const auto cannon_barrel_transform = barrel_transform->resolve();
+        const auto cannon_ball_position = glm::vec3(cannon_barrel_transform[3]);
 
         LOG_TRACE("fire from {:.1f} {:.1f} {:.1f} at {:.1f} {:.1f} {:.1f} m/s by {}", cannon_ball_position.x,
                   cannon_ball_position.y, cannon_ball_position.z, cannon_ball_initial_velocity_.x,
@@ -124,5 +128,25 @@ void CannonController::update(float delta_time)
         aiming_ = false;
         fired_ = false;
         recoil_ = RECOIL_AMPLITUDE;
+
+        constexpr const size_t SMOKE_PARTICLE_COUNT = 200;
+        constexpr const float SMOKE_PARTICLE_SPREAD = glm::radians(5.0f);
+        constexpr const Duration SMOKE_PARTICLE_MIN_LIFETIME = Duration::milliseconds(400.0f);
+        constexpr const Duration SMOKE_PARTICLE_MAX_LIFETIME = Duration::milliseconds(1500.0f);
+
+        const auto base_particle_position = cannon_ball_position + glm::normalize(cannon_ball_initial_velocity_) * 2.0f;
+        std::vector<Particle> particles(SMOKE_PARTICLE_COUNT);
+        for (auto &particle : particles)
+        {
+            particle.position = base_particle_position + 0.2f * Random::direction();
+            particle.velocity = Random::direction(UP, SMOKE_PARTICLE_SPREAD);
+            particle.color = Color(Random::random(0.0f, 0.4f) * ONE, Random::random(0.3f, 0.8f));
+            particle.life =
+                Random::random(SMOKE_PARTICLE_MIN_LIFETIME.toSeconds(), SMOKE_PARTICLE_MAX_LIFETIME.toSeconds());
+            particle.is_subject_to_gravity = false;
+            particle.scale = {0.1f, 0.1f};
+        }
+
+        ParticleSystem::addParticles(particles);
     }
 }

@@ -85,7 +85,7 @@ void GameObject::initialize()
     initialized_ = true;
 }
 
-void GameObject::update(float delta_time)
+void GameObject::update()
 {
     if (!active)
     {
@@ -96,12 +96,12 @@ void GameObject::update(float delta_time)
 
     for (auto &child : children_)
     {
-        child->update(delta_time);
+        child->update();
     }
 
     for (auto &component : components_)
     {
-        component->update(delta_time);
+        component->update();
     }
 }
 

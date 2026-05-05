@@ -47,7 +47,7 @@ class Camera3D : public Component
 
     static void shake(Duration duration);
     static void displayEffect(std::shared_ptr<resource::Texture> texture, Duration duration);
-    static void updateEffect(float delta_time);
+    static void updateEffect();
     void renderEffect() const;
 
     static void onViewportResize(uint32_t width, uint32_t height);

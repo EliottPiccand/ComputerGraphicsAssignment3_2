@@ -24,13 +24,11 @@ void HealthBar::initialize()
     GET_COMPONENT(Transform, transform_, HealthBar);
 }
 
-void HealthBar::update(float delta_time)
+void HealthBar::update()
 {
     ProfileScope;
 
     constexpr const float HEALTH_BAR_HEIGHT = 50.0f;
-
-    (void)delta_time;
 
     auto transform = transform_.lock();
     auto follow_target_transform = follow_target_.lock();

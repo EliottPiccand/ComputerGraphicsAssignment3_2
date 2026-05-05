@@ -50,6 +50,9 @@ if __name__ == "__main__":
     while len(dirs_to_check) > 0:
         directory = dirs_to_check.pop(0)
 
+        if not directory.exists():
+            continue
+
         if not any(directory.iterdir()):
             log("deleting", asset)
             directory.rmdir()

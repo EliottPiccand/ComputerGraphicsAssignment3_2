@@ -37,12 +37,13 @@
 - ~~sparks on cannon ball stem~~
 - ~~red overlay on getting hit~~
 - ~~instanciated rendering for particle system~~
-- pbr
+- ~~smoke when cannon fire~~
+- ~~pbr~~
+- waves + water interaction (https://alextardif.com/Water.html)
 - fireworks on win
 - sink animation
 - rotating ship wheel
 - moving rudder
-- waves + water interaction
 - sun
 - birds
 - shadows
@@ -50,6 +51,7 @@
 ## If time
 - ~~move textures in the assets/texture folder and fix models accordingly~~
 - fix copy_asset.py when ?
-- update every part using Instant or Duration to something not linked to the system clock, to properly be able to pause the game.
+- ~~update every part using Instant or Duration to something not linked to the system clock, to properly be able to pause the game.~~
 - readd debug view
 - debug GameObject names
+- make particle spawning events and add them to debug scene

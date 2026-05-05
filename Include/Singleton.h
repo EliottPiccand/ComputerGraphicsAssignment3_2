@@ -18,5 +18,4 @@ struct Singleton
     static inline RenderingStyle rendering_style = RenderingStyle::OpaquePolygon;
 
     static inline std::weak_ptr<GameObject> scene_root;
-    static inline bool physics_paused = false;
 };

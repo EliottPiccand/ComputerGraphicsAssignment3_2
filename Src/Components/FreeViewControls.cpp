@@ -24,7 +24,7 @@ FreeViewControls::FreeViewControls()
     Input::bindKey(Input::Action::FreeViewDown,     GLFW_KEY_LEFT_SHIFT);
 }
 
-void FreeViewControls::update(float delta_time)
+void FreeViewControls::update()
 {
     ProfileScope;
 
@@ -50,12 +50,12 @@ void FreeViewControls::update(float delta_time)
         auto mouse_delta = Input::getMouseDelta();
         if (glm::length(mouse_delta) > EPSILON)
         {
-            float delta_pitch = mouse_delta.y * delta_time * VERTICAL_SENSITIVITY;
+            float delta_pitch = mouse_delta.y * Time::getDeltaTimeNoPause() * VERTICAL_SENSITIVITY;
             float pitch = glm::acos(glm::dot(camera_direction, forward)) * glm::sign(glm::dot(camera_direction, UP));
             delta_pitch = glm::clamp(delta_pitch, MIN_PITCH - pitch, MAX_PITCH - pitch);
 
             camera_direction = glm::rotate(camera_direction, delta_pitch, right);
-            camera_direction = glm::rotate(camera_direction, mouse_delta.x * delta_time * HORIZONTAL_SENSITIVITY, UP);
+            camera_direction = glm::rotate(camera_direction, mouse_delta.x * Time::getDeltaTimeNoPause() * HORIZONTAL_SENSITIVITY, UP);
 
             camera->forward_ = camera_direction;
 
@@ -100,7 +100,7 @@ void FreeViewControls::update(float delta_time)
 
         if (glm::length(motion) > EPSILON)
         {
-            motion *= SPEED * delta_time;
+            motion *= SPEED * Time::getDeltaTimeNoPause();
 
             camera->transform_.lock()->translate(motion);
         }

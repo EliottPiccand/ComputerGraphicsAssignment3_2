@@ -24,7 +24,7 @@ class ParticleSystem
     static void addParticles(std::span<const Particle> particles);
 
     static void initialize();
-    static void update(float delta_time);
+    static void update();
     static void render();
 
   private:

@@ -66,7 +66,7 @@ void Camera3D::displayEffect(std::shared_ptr<resource::Texture> texture, Duratio
         },
     };
     effect_duration_ = duration;
-    effect_start_time_ = now();
+    effect_start_time_ = Time::now();
 }
 
 void Camera3D::shake(Duration duration)
@@ -74,20 +74,18 @@ void Camera3D::shake(Duration duration)
     constexpr const float SHAKING_INTENSITY = 2.0f;
 
     shaking_duration_ = duration;
-    shaking_start_ = now();
+    shaking_start_ = Time::now();
     shaking_offset_ = {SHAKING_INTENSITY, 0.0f};
-    last_shake_ = now();
+    last_shake_ = Time::now();
 }
 
-void Camera3D::updateEffect(float delta_time)
+void Camera3D::updateEffect()
 {
     ProfileScope;
 
-    (void)delta_time;
-
     constexpr const float SHAKING_SPREAD_ANGLE = glm::radians(60.0f);
 
-    const auto instant_now = now();
+    const auto instant_now = Time::now();
 
     if (instant_now >= effect_start_time_ + effect_duration_)
     {
@@ -97,9 +95,9 @@ void Camera3D::updateEffect(float delta_time)
     if (instant_now < shaking_start_ + shaking_duration_)
     {
         const auto elapsed = instant_now - shaking_start_;
-        const double duration = static_cast<double>(shaking_duration_.count());
+        const double duration = static_cast<double>(shaking_duration_.toSeconds());
         const float t = static_cast<float>(
-            glm::clamp((duration > 0.0) ? (static_cast<double>(elapsed.count()) / duration) : 1.0, 0.0, 1.0));
+            glm::clamp((duration > 0.0) ? (static_cast<double>(elapsed.toSeconds()) / duration) : 1.0, 0.0, 1.0));
         const float alpha = 1.0f - t * t;
 
         shaking_offset_ =
@@ -130,9 +128,9 @@ void Camera3D::renderEffect() const
     auto shader = weak_shader.lock();
     shader->bind();
     shader->setUniform("u_Model", glm::mat3(glm::scale(glm::mat4(1.0f), {2.0f, 2.0f, 1.0f})));
-    shader->setUniform("u_Alpha", std::sqrt(std::sqrt(1.0f - static_cast<float>((now() - effect_start_time_).count()) /
-                                                                 static_cast<float>(effect_duration_.count()))));
-    model.lock()->draw(shader, effect_);
+    shader->setUniform("u_Alpha", std::sqrt(std::sqrt(1.0f - (Time::now() - effect_start_time_).toSeconds() /
+                                                                 effect_duration_.toSeconds())));
+    effect_model_.lock()->draw(shader, effect_);
 }
 
 glm::vec3 Camera3D::getPosition() const

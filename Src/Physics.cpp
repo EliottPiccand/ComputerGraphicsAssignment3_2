@@ -7,6 +7,7 @@
 #include "Utils/Constants.h"
 #include "Utils/Math.h"
 #include "Utils/Profiling.h"
+#include "Utils/Time.h"
 
 void Physics::addRigidBody(std::weak_ptr<component::RigidBody> rigid_body)
 {
@@ -21,7 +22,7 @@ void Physics::addCollider(std::weak_ptr<component::Collider> collider, bool is_w
         colliders_.push_back(collider);
 }
 
-void Physics::update(float delta_time)
+void Physics::update()
 {
     ProfileScope;
 
@@ -130,7 +131,7 @@ void Physics::update(float delta_time)
         const auto world_position = glm::vec3(transform->resolve()[3]);
         transform->translate(rigid_body->position_ - world_position);
         transform->setRotation(rigid_body->orientation_);
-        collider->update(0.0f);
+        collider->update();
     };
 
     std::erase_if(rigid_bodys_, [](const auto &wp) { return wp.expired(); });
@@ -187,7 +188,7 @@ void Physics::update(float delta_time)
             return std::make_tuple(force, application_point);
         });
 
-        rigid_body->updatePhysics(delta_time);
+        rigid_body->updatePhysics(Time::getDeltaTime());
 
         const auto world_transform = transform->resolve();
 
@@ -195,7 +196,7 @@ void Physics::update(float delta_time)
         transform->translate(rigid_body->position_ - world_position);
 
         transform->setRotation(rigid_body->orientation_);
-        collider->update(0.0f);
+        collider->update();
     }
 
     const auto water_id = water_collider->getOwner()->getId();

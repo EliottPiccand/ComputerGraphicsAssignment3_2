@@ -7,6 +7,7 @@
 #include "Components/Component.h"
 #include "Components/RigidBody.h"
 #include "Components/Transform.h"
+#include "Utils/Time.h"
 
 namespace component
 {
@@ -36,7 +37,7 @@ class ShipController : public Component
     virtual ~ShipController() override = default;
 
     void initialize() override;
-    void update(float delta_time) override;
+    void update() override;
 
   protected:
     virtual void updateStates();
@@ -44,6 +45,7 @@ class ShipController : public Component
     SpeedState speed_state_;
     TurnState turn_state_;
     float turn_speed_;
+    Instant last_particle_spawn_;
 
     std::weak_ptr<Transform> transform_;
     std::weak_ptr<RigidBody> rigid_body_;

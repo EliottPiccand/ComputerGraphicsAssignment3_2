@@ -60,7 +60,7 @@ class Collider : public Component
     [[nodiscard]] bool callCollisionCallbacks(GameObjectId game_object_id) const;
 
     void initialize() override;
-    void update(float delta_time) override;
+    void update() override;
 
   private:
     friend Physics;

@@ -1,11 +1,33 @@
 #include "Utils/Time.h"
 
-Instant now()
+Instant Time::now()
 {
-    return std::chrono::steady_clock::now();
+    return now_;
 }
 
-float toSeconds(Duration duration)
+void Time::initialize()
 {
-    return static_cast<float>(duration.count()) / 1e9f;
+    paused = false;
+    now_ = Instant();
+    delta_time_ = 0.0f;
+}
+
+void Time::update(float delta_time)
+{
+    delta_time_ = delta_time;
+
+    if (paused)
+        return;
+
+    now_.seconds_ += delta_time;
+}
+
+float Time::getDeltaTime()
+{
+    return paused ? 0.0f : delta_time_;
+}
+
+float Time::getDeltaTimeNoPause()
+{
+    return delta_time_;
 }
