@@ -10,6 +10,7 @@
 
 #include <Lib/OpenGL.h>
 #include <Lib/glm.h>
+#include <vector>
 
 namespace resource
 {
@@ -23,7 +24,8 @@ class Shader
 
     [[nodiscard]] static std::shared_ptr<Shader> load(const std::filesystem::path &vertex_path,
                                                       const std::filesystem::path &fragment_path,
-                                                      const Defines defines = {});
+                                                      const Defines defines = {},
+                                                      const std::vector<std::filesystem::path> &shared_code_paths = {});
 
     Shader(GLuint program);
     ~Shader();
@@ -37,15 +39,17 @@ class Shader
     void setUniform(const char *name, const glm::vec4 &value) const;
     void setUniform(const char *name, const glm::mat3 &value) const;
     void setUniform(const char *name, const glm::mat4 &value) const;
-    
+
     void setUniformArrayElement(std::string_view name, size_t index, const glm::vec3 &value) const;
 
     bool bindTexture(const char *name, GLint texture_unit) const;
 
   protected:
     static std::string buildDefinesCode(const Defines defines);
+    static std::tuple<std::string, std::string> buildSharedCode(
+        const std::vector<std::filesystem::path> &shared_code_paths);
     static std::string buildShaderCode(std::string_view type, const std::filesystem::path &path,
-                                       const std::string &defines);
+                                       const std::string &defines, const std::string &shared_code);
 
   private:
     const GLuint program_;

@@ -2,7 +2,6 @@
 
 #include <cassert>
 
-#include "Components/Sky.h"
 #include "Resources/ResourceLoader.h"
 #include "Resources/Shader.h"
 #include "Utils/Profiling.h"
@@ -25,7 +24,7 @@ void ModelInstance::render(glm::mat4 &transform) const
     auto shader = weak_shader.lock();
 
     shader->bind();
-    Sky::bindIBL(shader);
     shader->setUniform("u_Model", transform);
+    shader->setUniform("u_ModelNormal", glm::transpose(glm::inverse(glm::mat3(transform))));
     model_->draw(shader, materials_override_);
 }

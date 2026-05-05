@@ -4,7 +4,6 @@
 		"version":"2.0"
 	},
 	"extensionsUsed":[
-		"KHR_materials_specular"
 	],
 	"scene":0,
 	"scenes":[
@@ -911,14 +910,6 @@
 				"index":0
 			},
 			"extensions":{
-				"KHR_materials_specular":{
-					"specularFactor":0,
-					"specularColorFactor":[
-						0.8999999761581421,
-						0.8999999761581421,
-						0.8999999761581421
-					]
-				}
 			},
 			"name":"Mat_SailsRope",
 			"normalTexture":{
@@ -937,14 +928,6 @@
 			"alphaMode":"BLEND",
 			"doubleSided":true,
 			"extensions":{
-				"KHR_materials_specular":{
-					"specularFactor":0,
-					"specularColorFactor":[
-						0.8999999761581421,
-						0.8999999761581421,
-						0.8999999761581421
-					]
-				}
 			},
 			"name":"Mat_Masts",
 			"normalTexture":{
@@ -963,14 +946,6 @@
 			"alphaMode":"BLEND",
 			"doubleSided":true,
 			"extensions":{
-				"KHR_materials_specular":{
-					"specularFactor":0,
-					"specularColorFactor":[
-						0.8999999761581421,
-						0.8999999761581421,
-						0.8999999761581421
-					]
-				}
 			},
 			"name":"Mat_Elements",
 			"normalTexture":{
@@ -989,14 +964,6 @@
 			"alphaMode":"BLEND",
 			"doubleSided":true,
 			"extensions":{
-				"KHR_materials_specular":{
-					"specularFactor":0,
-					"specularColorFactor":[
-						0.8999999761581421,
-						0.8999999761581421,
-						0.8999999761581421
-					]
-				}
 			},
 			"name":"Mat_ShipHull",
 			"normalTexture":{
@@ -1014,14 +981,6 @@
 		{
 			"doubleSided":true,
 			"extensions":{
-				"KHR_materials_specular":{
-					"specularFactor":0,
-					"specularColorFactor":[
-						0.8999999761581421,
-						0.8999999761581421,
-						0.8999999761581421
-					]
-				}
 			},
 			"name":"Mat_Decks",
 			"normalTexture":{

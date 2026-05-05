@@ -5,6 +5,7 @@ in vec3 in_Normal;
 in vec2 in_UV;
 
 uniform mat4 u_Model;
+uniform mat3 u_ModelNormal;
 uniform mat4 u_View;
 uniform mat4 u_Projection;
 #ifdef FLAP
@@ -78,6 +79,6 @@ void main()
 
     gl_Position = u_Projection * u_View * posWorld;
     out_Pos = posWorld.xyz;
-    out_Normal = normalize(mat3(u_Model) * normal);
+    out_Normal = normalize(u_ModelNormal * normal);
     out_UV = in_UV;
 }

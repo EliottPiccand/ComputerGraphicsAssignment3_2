@@ -23,7 +23,8 @@ Shader::~Shader()
 }
 
 std::shared_ptr<Shader> Shader::load(const std::filesystem::path &partial_vertex_path,
-                                     const std::filesystem::path &partial_fragment_path, const Defines defines)
+                                     const std::filesystem::path &partial_fragment_path, const Defines defines,
+                                     const std::vector<std::filesystem::path> &shared_code_paths)
 {
     ProfileScope;
 
@@ -37,13 +38,14 @@ std::shared_ptr<Shader> Shader::load(const std::filesystem::path &partial_vertex
     LOG_DEBUG("- fragment: '{}'", relativeToExeDir(fragment_path).string());
 
     const auto defines_code = buildDefinesCode(defines);
+    const auto [vertex_shared_code, fragment_shared_code] = buildSharedCode(shared_code_paths);
 
     std::string vertex_code;
     std::string fragment_code;
     try
     {
-        vertex_code = buildShaderCode("vertex", vertex_path, defines_code);
-        fragment_code = buildShaderCode("fragment", fragment_path, defines_code);
+        vertex_code = buildShaderCode("vertex", vertex_path, defines_code, vertex_shared_code);
+        fragment_code = buildShaderCode("fragment", fragment_path, defines_code, fragment_shared_code);
     }
     catch (const std::ifstream::failure &e)
     {
@@ -205,7 +207,7 @@ std::string Shader::buildDefinesCode(const Defines defines)
 }
 
 std::string Shader::buildShaderCode(std::string_view type, const std::filesystem::path &path,
-                                    const std::string &defines)
+                                    const std::string &defines, const std::string &shared_code)
 {
     std::ifstream shader_file;
     shader_file.exceptions(std::ifstream::failbit | std::ifstream::badbit);
@@ -222,9 +224,25 @@ std::string Shader::buildShaderCode(std::string_view type, const std::filesystem
     }
 
     std::stringstream shader_stream;
-    shader_stream << shader_version_line << "\n" << defines << shader_file.rdbuf();
+    shader_stream << shader_version_line << "\n" << defines << "\n" << shared_code << shader_file.rdbuf();
 
     shader_file.close();
 
     return shader_stream.str();
+}
+
+std::tuple<std::string, std::string> Shader::buildSharedCode(
+    const std::vector<std::filesystem::path> &shared_code_paths)
+{
+    std::stringstream vertex_code_steam;
+    std::stringstream fragment_code_steam;
+    for (const auto &path : shared_code_paths)
+    {
+        std::ifstream file;
+        file.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+        file.open(ResourceLoader::ASSETS_DIRECTORY / DIRECTORY / path);
+
+        (path.string().ends_with(".frag") ? fragment_code_steam : vertex_code_steam) << file.rdbuf() << "\n";
+    }
+    return {vertex_code_steam.str(), fragment_code_steam.str()};
 }

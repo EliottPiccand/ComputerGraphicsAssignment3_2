@@ -24,7 +24,7 @@ class ResourceLoader
 
     template <Resource R, typename... Args> static void load(std::string_view name, Args &&...args);
     template <Resource R> [[nodiscard]] static std::shared_ptr<R> get(std::string_view name);
-    [[nodiscard]] static bool isLoaded(std::string_view name);
+    template <Resource R> [[nodiscard]] static bool isLoaded(std::string_view name);
 
   private:
     static inline std::unordered_map<std::string, std::shared_ptr<void>> resources_;
@@ -54,4 +54,10 @@ template <Resource R> std::shared_ptr<R> ResourceLoader::get(std::string_view na
     }
 
     return std::static_pointer_cast<R>(resources_[full_name]);
+}
+
+template <Resource R> bool ResourceLoader::isLoaded(std::string_view name)
+{
+    const auto full_name = std::format("{}/{}", R::DIRECTORY, name);
+    return resources_.contains(full_name);
 }

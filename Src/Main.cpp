@@ -6,7 +6,6 @@
 #pragma region libs
 
 #define STB_IMAGE_IMPLEMENTATION
-#define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <Lib/stb.h>
 
 #define TINYGLTF3_IMPLEMENTATION

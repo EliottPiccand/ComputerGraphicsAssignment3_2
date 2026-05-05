@@ -4,9 +4,9 @@ layout(location = 0) in vec3 in_WorldDir;
 
 uniform sampler2D u_EnvironmentMap;
 
-const float PI = 3.14159265359;
-
 out vec4 out_Color;
+
+const float PI = 3.14159265359;
 
 vec2 sampleEquirect(vec3 dir)
 {
@@ -23,10 +23,6 @@ void main()
 {
     vec3 dir = in_WorldDir;
     vec3 equirectDir = vec3(dir.x, dir.z, -dir.y);
-
-    vec3 hdr = texture(u_EnvironmentMap, sampleEquirect(equirectDir)).rgb;
-    vec3 color = hdr / (hdr + vec3(1.0));
-    color = pow(color, vec3(1.0 / 2.2));
-
-    out_Color = vec4(color, 1.0);
+    vec4 color = texture(u_EnvironmentMap, sampleEquirect(equirectDir));
+    out_Color = vec4(toneMapping(color.rgb), color.a);
 }

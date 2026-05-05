@@ -48,7 +48,7 @@
 #include "Utils/Random.h"
 #include "Utils/Time.h"
 
-constexpr const bool DEBUG_SCENE = true;
+constexpr const bool DEBUG_SCENE = false;
 
 #pragma region model_settings
 
@@ -300,21 +300,21 @@ Application::Application() : should_close_(false), free_view_override_(false)
     
     LOG_INFO("compiling shaders");
     
-    ResourceLoader::load<resource::Shader>("Sky",          "Sky.vert",          "Sky.frag");
-    ResourceLoader::load<resource::Shader>("EquirectToCubemap", "IBLCubeCapture.vert", "EquirectToCubemap.frag");
-    ResourceLoader::load<resource::Shader>("IrradianceConvolution", "IBLCubeCapture.vert", "IrradianceConvolution.frag");
-    ResourceLoader::load<resource::Shader>("PrefilterEnv", "IBLCubeCapture.vert", "PrefilterEnv.frag");
-    ResourceLoader::load<resource::Shader>("BrdfIntegration", "BrdfLut.vert", "BrdfLut.frag");
-    ResourceLoader::load<resource::Shader>("PBR",          "PBR.vert",          "PBR.frag", resource::Shader::Defines{
+    const std::vector<std::filesystem::path> shared_shader_code = {
+        "ToneMapping.frag",
+    };
+
+    ResourceLoader::load<resource::Shader>("Sky",          "Sky.vert",          "Sky.frag",          resource::Shader::Defines{}, shared_shader_code);
+    ResourceLoader::load<resource::Shader>("PBR",          "PBR.vert",          "PBR.frag",          resource::Shader::Defines{
         {std::string_view("MAX_DIRECTIONAL_LIGHTS"), std::optional(std::to_string(component::DirectionalLight::MAX_DIRECTIONAL_LIGHTS))},
-    });
-    ResourceLoader::load<resource::Shader>("PBR#FLAP",     "PBR.vert",          "PBR.frag", resource::Shader::Defines{
+    }, shared_shader_code);
+    ResourceLoader::load<resource::Shader>("PBR#FLAP",     "PBR.vert",          "PBR.frag",          resource::Shader::Defines{
         {std::string_view("MAX_DIRECTIONAL_LIGHTS"), std::optional(std::to_string(component::DirectionalLight::MAX_DIRECTIONAL_LIGHTS))},
         {std::string_view("FLAP"), std::nullopt},
-    });
+    }, shared_shader_code);
     ResourceLoader::load<resource::Shader>("WorldColor",   "WorldColor.vert",   "WorldColor.frag"  );
     ResourceLoader::load<resource::Shader>("WorldTexture", "WorldTexture.vert", "WorldTexture.frag");
-    ResourceLoader::load<resource::Shader>("Water",        "Water.vert",        "Water.frag"       );
+    ResourceLoader::load<resource::Shader>("Water",        "Water.vert",        "Water.frag",        resource::Shader::Defines{}, shared_shader_code);
     ResourceLoader::load<resource::Shader>("Particle",     "Particle.vert",     "Particle.frag"    );
     ResourceLoader::load<resource::Shader>("UI",           "UI.vert",           "UI.frag"          );
     
@@ -329,7 +329,7 @@ Application::Application() : should_close_(false), free_view_override_(false)
     ResourceLoader::load<resource::Texture>("MissingAlbedo",              "MissingAlbedo.png",              resource::Texture::Type::Albedo                 );
     ResourceLoader::load<resource::Texture>("MissingMetallicRoughness",   "MissingMetallicRoughness.png",   resource::Texture::Type::MetallicRoughness      );
     ResourceLoader::load<resource::Texture>("MissingNormalMap",           "MissingNormalMap.png",           resource::Texture::Type::NormalMap              );
-    ResourceLoader::load<resource::Texture>("Sky/Daytime.hdr",            "Sky/Daytime.hdr",                resource::Texture::Type::Albedo,            true);
+    ResourceLoader::load<resource::Texture>("Sky/SkyBox",                 "Sky/SkyBox.hdr",                resource::Texture::Type::Albedo,            true);
     ResourceLoader::load<resource::Texture>("Ship/PlayerVariant",         "Ship/SailsRopePlayerAlbedo.png", resource::Texture::Type::Albedo                 );
     ResourceLoader::load<resource::Texture>("Effect/HitVignette",         "Effects/HitVignette.png",        resource::Texture::Type::Albedo                 );
     ResourceLoader::load<resource::Texture>("Message/Victory",            "Messages/Victory.png",           resource::Texture::Type::Albedo                 );
@@ -452,8 +452,17 @@ Application::Application() : should_close_(false), free_view_override_(false)
     };
     const resource::Model::MaterialsOverride ENEMY_SHIP_MATERIALS_OVERRIDE = {};
 
-    main_view_ = View::Top;
-    Singleton::view = main_view_;
+    if constexpr (DEBUG_SCENE)
+    {
+        main_view_ = View::FreeCamera;
+        Singleton::view = main_view_;
+        window_->captureMouse();
+    }
+    else
+    {
+        main_view_ = View::Top;
+        Singleton::view = main_view_;
+    }
 
     /******************************************************************************/
     /*                                   Scene                                    */
@@ -463,7 +472,10 @@ Application::Application() : should_close_(false), free_view_override_(false)
     [&] {
         scene_root_ = std::make_shared<GameObject>();
         scene_root_->addComponent<component::Transform>();
-        scene_root_->addComponent<component::Sky>(ResourceLoader::get<resource::Texture>("Sky/Daytime.hdr"));
+        scene_root_->addComponent<component::Sky>(ResourceLoader::get<resource::Texture>("Sky/SkyBox"), std::vector{
+            std::weak_ptr(ResourceLoader::get<resource::Shader>("PBR")),
+            std::weak_ptr(ResourceLoader::get<resource::Shader>("PBR#FLAP")),
+        });
         scene_root_->addComponent<component::DirectionalLight>(
             glm::normalize(2.0f * DOWN + WEST + SOUTH),
             color::SUN,
@@ -1049,7 +1061,7 @@ void Application::update(float delta_time)
     {
         window_->toggleFullScreen();
     }
-    if (Input::getState(Input::Action::ToggleFreeView) == Input::State::JustReleased)
+    if (Input::getState(Input::Action::ToggleFreeView) == Input::State::JustReleased && !DEBUG_SCENE)
     {
         if (!free_view_override_)
         {
@@ -1105,7 +1117,7 @@ void Application::update(float delta_time)
             LOG_INFO("debug mode disabled");
         }
     }
-    if (Input::getState(Input::Action::CycleCameras) == Input::State::JustReleased)
+    if (Input::getState(Input::Action::CycleCameras) == Input::State::JustReleased && !DEBUG_SCENE)
     {
         switch (main_view_)
         {
@@ -1126,7 +1138,7 @@ void Application::update(float delta_time)
     {
         Singleton::physics_paused = !Singleton::physics_paused;
     }
-    if (Input::getState(Input::Action::RestartGame) == Input::State::JustReleased)
+    if (Input::getState(Input::Action::RestartGame) == Input::State::JustReleased && !DEBUG_SCENE)
     {
         restart();
     }

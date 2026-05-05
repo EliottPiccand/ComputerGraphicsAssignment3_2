@@ -22,6 +22,5 @@
 #pragma clang diagnostic ignored "-Wunused-function"
 
 #include <stb/stb_image.h>
-#include <stb/stb_image_write.h>
 
 #pragma clang diagnostic pop

@@ -26,7 +26,7 @@ std::shared_ptr<ComputeShader> ComputeShader::load(const std::filesystem::path &
     std::string compute_code;
     try
     {
-        compute_code = buildShaderCode("compute", path, defines_code);
+        compute_code = buildShaderCode("compute", path, defines_code, "");
     }
     catch (const std::ifstream::failure &e)
     {

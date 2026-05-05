@@ -507,7 +507,7 @@ std::shared_ptr<Model> Model::load(const std::filesystem::path &partial_path)
                 {
                     const auto texture_uri = textures[source_index];
 
-                    if (!ResourceLoader::isLoaded(texture_uri))
+                    if (!ResourceLoader::isLoaded<Texture>(texture_uri))
                     {
                         ResourceLoader::load<Texture>(texture_uri, texture_uri, Texture::Type::Albedo);
                     }
@@ -530,7 +530,7 @@ std::shared_ptr<Model> Model::load(const std::filesystem::path &partial_path)
                 {
                     const auto texture_uri = textures[source_index];
 
-                    if (!ResourceLoader::isLoaded(texture_uri))
+                    if (!ResourceLoader::isLoaded<Texture>(texture_uri))
                     {
                         ResourceLoader::load<Texture>(texture_uri, texture_uri, Texture::Type::MetallicRoughness);
                     }
@@ -550,7 +550,7 @@ std::shared_ptr<Model> Model::load(const std::filesystem::path &partial_path)
                 {
                     const auto texture_uri = textures[source_index];
 
-                    if (!ResourceLoader::isLoaded(texture_uri))
+                    if (!ResourceLoader::isLoaded<Texture>(texture_uri))
                     {
                         ResourceLoader::load<Texture>(texture_uri, texture_uri, Texture::Type::NormalMap);
                     }
@@ -574,7 +574,7 @@ std::shared_ptr<Model> Model::load(const std::filesystem::path &partial_path)
                 {
                     const auto texture_uri = textures[source_index];
 
-                    if (!ResourceLoader::isLoaded(texture_uri))
+                    if (!ResourceLoader::isLoaded<Texture>(texture_uri))
                     {
                         ResourceLoader::load<Texture>(texture_uri, texture_uri, Texture::Type::Emissive);
                     }
@@ -587,84 +587,13 @@ std::shared_ptr<Model> Model::load(const std::filesystem::path &partial_path)
                                                                  gltf_material.ext.extensions_count);
         for (const auto &&[extension_index, extension] : material_extensions | std::views::enumerate)
         {
-            // Specular
             if (tg3_str_equals_cstr(extension.name, "KHR_materials_specular"))
             {
-                const auto &value = extension.value;
-
-                if (value.type != TG3_VALUE_OBJECT)
-                {
-                    LOG_WARNING("ill formatted value on extension #{}, material #{} : value is not an object",
-                                extension_index, material_index);
-                    continue;
-                }
-
-                const std::span<const tg3_kv_pair> extension_objects(value.object_data, value.object_count);
-                for (const auto &kv : extension_objects)
-                {
-                    if (tg3_str_equals_cstr(kv.key, "specularFactor"))
-                    {
-                        switch (kv.value.type)
-                        {
-                        case TG3_VALUE_REAL:
-                            material.specular_factor = static_cast<float>(kv.value.real_val);
-                            break;
-                        case TG3_VALUE_INT:
-                            material.specular_factor = static_cast<float>(kv.value.int_val);
-                            break;
-                        default:
-                            LOG_WARNING("ill formatted value for material #{}, extension #{}: "
-                                        "KHR_materials_specular.specularFactor: value should be a real or an int",
-                                        material_index, extension_index);
-                        }
-                    }
-
-                    if (tg3_str_equals_cstr(kv.key, "specularColor"))
-                    {
-                        if (kv.value.type != TG3_VALUE_ARRAY)
-                        {
-                            LOG_WARNING("ill formatted value for material #{}, extension #{}: "
-                                        "KHR_materials_specular.specularColor: value should be an array",
-                                        material_index, extension_index);
-                            continue;
-                        }
-
-                        if (kv.value.array_count != 3)
-                        {
-                            LOG_WARNING("ill formatted value for material #{}, extension #{}: "
-                                        "KHR_materials_specular.specularColor: value should be an array of 3 values",
-                                        material_index, extension_index);
-                            continue;
-                        }
-
-                        std::array<float, 3> rgb{};
-                        const std::span<const tg3_value> kv_values(kv.value.array_data, kv.value.array_count);
-
-                        for (auto &&[c, v] : std::views::zip(rgb, kv_values))
-                        {
-                            switch (v.type)
-                            {
-                            case TG3_VALUE_REAL:
-                                c = static_cast<float>(v.real_val);
-                                break;
-                            case TG3_VALUE_INT:
-                                c = static_cast<float>(v.int_val);
-                                break;
-                            default:
-                                LOG_WARNING(
-                                    "ill formatted value for material #{}, extension #{}: "
-                                    "KHR_materials_specular.specularColor: value should be an array of 3 reals or ints",
-                                    material_index, extension_index);
-                            }
-                        }
-
-                        material.specular_color = Color{rgb[0], rgb[1], rgb[2], 1.0f};
-                    }
-                }
+                LOG_WARNING("material {} uses the 'KHR_materials_specular' extension, but this is incompatible with the metallic/roughness pipeline", material_index);
             }
             else
             {
-                LOG_WARNING("material {} use an unsupported extension: '{}'", material_index, extension.name.data);
+                LOG_WARNING("material {} uses an unsupported extension: '{}'", material_index, extension.name.data);
             }
         }
 
@@ -707,6 +636,7 @@ constexpr const GLenum BASE_COLOR_TEXTURE_SLOT = GL_TEXTURE0;
 constexpr const GLenum METALLIC_ROUGHNESS_TEXTURE_SLOT = GL_TEXTURE1;
 constexpr const GLenum NORMAL_MAP_TEXTURE_SLOT = GL_TEXTURE2;
 constexpr const GLenum EMISSIVE_TEXTURE_SLOT = GL_TEXTURE3;
+constexpr const GLenum ENVIRONMENT_MAP_TEXTURE_SLOT = GL_TEXTURE4;
 
 void Model::draw(std::shared_ptr<resource::Shader> shader, MaterialsOverride materials_override) const
 {
@@ -769,8 +699,6 @@ void Model::drawInner(std::shared_ptr<resource::Shader> shader, MaterialsOverrid
             material.normal_map                 = material_override.normal_map.has_value()                  ? material_override.normal_map.value()                  : material.normal_map                 ;
             material.emissive_color             = material_override.emissive_color.has_value()              ? material_override.emissive_color.value()              : material.emissive_color             ;
             material.emissive_texture           = material_override.emissive_texture.has_value()            ? material_override.emissive_texture.value()            : material.emissive_texture           ;
-            material.specular_factor            = material_override.specular_factor.has_value()             ? material_override.specular_factor.value()             : material.specular_factor            ;
-            material.specular_color             = material_override.specular_color.has_value()              ? material_override.specular_color.value()              : material.specular_color             ;
             // clang-format on
         }
 
@@ -793,9 +721,11 @@ void Model::drawInner(std::shared_ptr<resource::Shader> shader, MaterialsOverrid
         getTexture(material.emissive_texture, Texture::Type::Emissive)
             ->bind(EMISSIVE_TEXTURE_SLOT, shader, "u_EmissiveTexture");
 
-        // Specular
-        shader->setUniform("u_SpecularFactor", material.specular_factor);
-        shader->setUniform("u_SpecularColor", glm::vec3(material.specular_color));
+        // Environment Map
+        if (ResourceLoader::isLoaded<Texture>("Sky/SkyBox"))
+        {
+            ResourceLoader::get<Texture>("Sky/SkyBox")->bind(ENVIRONMENT_MAP_TEXTURE_SLOT, shader, "u_EnvironmentMap");
+        }
 
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.index_buffer);
 

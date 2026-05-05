@@ -4,7 +4,6 @@
 		"version":"2.0"
 	},
 	"extensionsUsed":[
-		"KHR_materials_specular"
 	],
 	"scene":0,
 	"scenes":[
@@ -203,14 +202,6 @@
 		{
 			"doubleSided":true,
 			"extensions":{
-				"KHR_materials_specular":{
-					"specularFactor":0.800000011920929,
-					"specularColorFactor":[
-						0.800000011920929,
-						0.800000011920929,
-						0.800000011920929
-					]
-				}
 			},
 			"name":"None__CannonBall_png",
 			"pbrMetallicRoughness":{

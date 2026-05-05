@@ -45,10 +45,6 @@ class Model
 
         std::optional<Color> emissive_color                                 = std::nullopt;
         std::optional<std::weak_ptr<Texture>> emissive_texture              = std::nullopt;
-
-        std::optional<float> specular_factor                                = std::nullopt;
-        std::optional<Color> specular_color                                 = std::nullopt;
-
         // clang-format on
     };
 
@@ -87,9 +83,6 @@ class Model
 
         Color emissive_color = color::TRANSPARENT;
         std::weak_ptr<Texture> emissive_texture = std::shared_ptr<Texture>(nullptr);
-
-        float specular_factor = 1.0f;
-        Color specular_color = color::WHITE;
     };
 
     struct Shape
