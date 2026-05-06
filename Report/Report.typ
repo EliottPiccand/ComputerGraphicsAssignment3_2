@@ -80,6 +80,14 @@
 = Development environment
 To develop our program, we used VSCodium (with the clangd extension) for code editing, and CMake for compiling. However, instruction to compile with Visual Studio are available in the project `README.md`. To understand the source code, the reader must be familiar with modern C++ features (C++ 23) and OpenGL latest version (4.6).
 
+Out game extensively use modern OpenGL features such as Tesselation shaders, Compute shaders and SSBOs.
+Thus it is required to have an OpenGL 4.6 compatible computer to run the game.
+Moreover, heavy features are used (PBR and water rendering, particle system, ...).
+During the development, our computer have a Nvidia RTX 4070.
+Thus, it is possible that less performant hardware might reduce the frame rate of the game and the gameplay experience.
+Additionally, the game might take a few seconds to load, because of models and textures loading, and shader compiling.
+It is normal to see a blank window for a few seconds. 
+
 In addition, we used the #link("https://github.com/wolfpld/tracy")[Tracy] library to profile our game when we faced performances issues. This library was only used during the development and is not needed when compiling the game in Debug or Release mode.
 
 = Program design and implementation
@@ -103,7 +111,10 @@ Our program contains several features, including:
 - water splash;
 - sparks on cannon balls;
 - red vignette on player hit;
-- smoke at the tip of the cannon barrel after firing.
+- smoke at the tip of the cannon barrel after firing;
+- sky;
+- realistic water;
+- physics based rendering.
 
 and some features not visible by the players, but useful for development:
 - hierarchical system;
@@ -220,7 +231,7 @@ The maths used to compute the cannon inclination can be found inside `Ballistic.
 
 === Cannon Balls
 Each cannon can fire cannon balls (see @fig:cannon-ball).
-Cannon balls follow a parabolic trajectory (see @fig:cannon-ball-trajectory & @fig:top-view-debug) matching Newton's laws thanks to the physics engine.
+Cannon balls follow a parabolic trajectory (see @fig:cannon-ball-trajectory) matching Newton's laws thanks to the physics engine.
 
 Because the top view camera is quite high to be able to see the entire map, the cannon balls are too smalls to be seen in this view.
 Thus, when in top view, each cannon ball model is scales up to be 5 times larger (this is only visual and does not impact the gameplay).
@@ -233,7 +244,7 @@ Different types are implemented:
 - Sphere: We mainly used this type of collider for explosions damage area (see @fig:collider-sphere).
 
 Also, because we did not wanted the ships and cannon balls to hit an invisible wall when reaching the border of the map, we added some rocks all around the ocean (see @fig:rocks & @fig:top-view).
-Those rocks are purely visual and the collisions are handle by an AABB collider on each map edge (see @fig:rocks-collider & @fig:top-view-debug).
+Those rocks are purely visual and the collisions are handle by an AABB collider on each map edge (see @fig:rocks-collider).
 
 === Radar
 Each ship feature a rotating radar made of a brown cylinder and a red cone (see @fig:player-ship-annotated & @fig:radar).
@@ -243,7 +254,6 @@ When starting, the game spawn some enemies (see @fig:enemy-ship).
 Each enemy motion follow this process: the enemy pick a random point of the map (not too close to the current ship position), then rotate and move in a straight line toward this waypoint.
 Once reached, another waypoint is selected and the process restart.
 We also use the same process for the enemies' cannon's target: each target has its own waypoint, and the target move toward the waypoint.
-Those waypoints can be seen in debug mode: the waypoint itself is a 1m side red cube on the water, and its link to the ship or the ship's target by a green dashed line (see @fig:top-view-debug).
 
 === Damage System
 Each ship collider detects if a cannon ball enter collides with it.
@@ -342,7 +352,29 @@ Otherwise, they would be too small and only appear as a 1 pixel wide black dot.
 Whenever the player gets hit, a red vignette effect covers the screen for a small duration (see @fig:red-vignette).
 
 === Smoke at the Tip of the Cannon Barrel after Firing
-Whenever a ship (player or enemies) fires a cannon ball, a small cloud of smoke exit the cannon barrel. 
+Whenever a ship (player or enemies) fires a cannon ball, a small cloud of smoke exit the cannon barrel (see @fig:smoke).
+
+=== Sky
+We used a sky box to render a realistic sky (see @fig:sky).
+A cube with its faces oriented inward is rendered at the very beginning of the scene, with its faces pushed at the far plane of the camera.
+On it, we mapped a HDR (High Dynamic Ranged) image of a sky.
+
+=== Realistic Water
+To render the water, we used a multi-step rendering pass.
+Most of the scene renders first on an offscreen fragment buffer (containing color, depth and normals information).
+Then, the water uses those data to compute high quality reflections and refractions.
+Finally, this offscreen fragment buffer is blitted onto the screen.
+
+Using a combination of vertex, tesselation control, tesselation evaluation and fragment shader, we achieve to render in real time high quality water (see @fig:water).
+The water is still rendered as a quad plane, but the tesselation control shader divide each quad into a bunch of small triangles (tessels), and then the tesselation evaluation shader displace each tessels following a combination of several sinusoidal waves.
+Finally, the fragment shader uses different normal maps, noise maps and the previous framebuffer to compute the water color, including sky and scene mirroring effects (see @fig:water-mirror), specular effects and light reflection.
+
+=== Physics Based Rendering (PBR)
+Most of our models#footnote[All of them except the radar] contains PBR data.
+Thus, for each model, instead of simply render a plane color, we computed:
++ the base color (based on the material albedo texture);
++ light information: using the normal map and the metallic/roughness information, we computed an approximation of reflections of lights and the sky (see @fig:pbr);
++ emissive texture (see @fig:emissive).
 
 = End-user guide
 The game starts immediately on running the executable.
@@ -363,22 +395,16 @@ Additionally, at any time, the player can:
 - click `G` to restart the game
 - click `F11` to toggle fullscreen
 
-== Debug view and controls
+== Debug views and controls
 To help with debugging, a few debug options are available :
 - clicking `R` cycle between the different rendering mode. For now, the available rendering modes are:
     - Default
     - Wireframe
-    - Wireframe with hidden lines removal
+    - Wireframe with hidden lines removal#footnote[For performances matters, lines on models that doesn't write to the depth buffer - such as the sky box or the particles - are not hidden]
 - clicking `Enter` toggle a free view camera that can be moved with `W` `A` `S` `D` `Space` `Left Shift` and moving the mouse. (note that here, `W` `A` `S` `D` no longer move the ship).
-- clicking `P` toggle on/off the physics and the particle engines (not the animations tho)
+- clicking `P` pauses/resume the time flow of the game. This allow to pauses everything, except the free view camera (to be able to navigate the scene and inspect it).
 - clicking `F` when in another view than Top View fire a cannon ball from the player ship
 - the arrow keys `Up` `Left` `Down` `Right` move the player's cannon's target respectively North, West, South and East.
-- clicking `F3` toggle the display of a lot of debug information such as :
-    - colliders: AABB with red boxes, Convex Polyhedron with green wireframe and Sphere with cyan circles
-    - cannon's predicted trajectories: blue line
-    - ship's targets: represented by a 1x1x1 aabb collider at the end of the blue line
-    - enemy ships' waypoints: represented by a 1x1x1 aabb collider. A green dashed line goes from the ship to this waypoint
-    - enemy ships' targets' targets: same as the enemy ships' waypoint, but starting from the current ship's target.
 
 == Game Screenshots
 
@@ -401,27 +427,27 @@ To help with debugging, a few debug options are available :
 
 #figure(
   image("Images/CannonBall.png", width: imageWidth),
-  caption: [Cannon ball and sparks on its stem#footnote[The amount of spark's particles on the screenshot is bigger than the one seen in game because of the time needed to take the screenshot.]],
+  caption: [Cannon ball and sparks on its stem],
 ) <fig:cannon-ball>
 
 #figure(
   image("Images/CannonBallTrajectory.png", width: imageWidth),
-  caption: [Cannon ball trajectory preview (blue line) visible with the debug mode (`F3`) enabled],
+  caption: [Cannon ball trajectory preview (blue line)#footnote[This is a screenshot from the previous version of the game. In the new version, the debug view has been removed because it was no longer necessary (no changes to the game logic were made) and would have required a lot of time to reimplement.] <ft:debug>],
 ) <fig:cannon-ball-trajectory>
 
 #figure(
   image("Images/ColliderAABB.png", width: imageWidth),
-  caption: [AABB collider (in red) around a cannon ball],
+  caption: [AABB collider (in red) around a cannon ball@ft:debug],
 ) <fig:collider-aabb>
 
 #figure(
   image("Images/ColliderConvexPolyhedron.png", width: imageWidth),
-  caption: [Convex polyhedron collider (in green) and its AABB (in red) around a ship],
+  caption: [Convex polyhedron collider (in green) and its AABB (in red) around a ship@ft:debug],
 ) <fig:collider-convex-polyhedron>
 
 #figure(
   image("Images/ColliderSphere.png", width: imageWidth),
-  caption: [Sphere collider (in cyan) and its AABB (in red) inside an explosion],
+  caption: [Sphere collider (in cyan) and its AABB (in red) inside an explosion@ft:debug],
 ) <fig:collider-sphere>
 
 #figure(
@@ -431,17 +457,17 @@ To help with debugging, a few debug options are available :
 
 #figure(
   image("Images/RocksCollider.png", width: imageWidth),
-  caption: [Rocks at the edge of the map and the map edge collider],
+  caption: [Rocks at the edge of the map and the map edge collider@ft:debug],
 ) <fig:rocks-collider>
 
 #figure(
   image("Images/TopView.png", width: imageWidth),
-  caption: [Top view at the start of the game],
+  caption: [Top view during the game],
 ) <fig:top-view>
 
 #figure(
   image("Images/TopViewDebug.png", width: imageWidth),
-  caption: [Top view at the start of the game with debug mode enabled],
+  caption: [Top view at the start of the game with debug mode enabled@ft:debug],
 ) <fig:top-view-debug>
 
 #figure(
@@ -495,19 +521,49 @@ To help with debugging, a few debug options are available :
 ) <fig:water-splash>
 
 #figure(
+  image("Images/Smoke.png", width: imageWidth),
+  caption: [Water splash],
+) <fig:smoke>
+
+#figure(
   image("Images/RedVignette.png", width: imageWidth),
   caption: [Red vignette effect when the player ship get hit],
 ) <fig:red-vignette>
 
 #figure(
   image("Images/Axis.png", width: imageWidth),
-  caption: [Debug view of a cannon ball with on the middle of the screen, the game's axis and on the cannon ball, its model axis (red = X, green = Y and blue = Z)],
+  caption: [Debug view of a cannon ball with on the middle of the screen, the game's axis and on the cannon ball, its model axis (red = X, green = Y and blue = Z)@ft:debug],
 ) <fig:axis>
 
 #figure(
   image("Images/Camera.png", width: imageWidth),
-  caption: [Debug view of the camera following the cannon ball],
+  caption: [Debug view of the camera following the cannon ball@ft:debug],
 ) <fig:camera>
+
+#figure(
+  image("Images/Water.png", width: imageWidth),
+  caption: [High quality water],
+) <fig:water>
+
+#figure(
+  image("Images/WaterMirror.png", width: imageWidth),
+  caption: [Mirror effect in the water],
+) <fig:water-mirror>
+
+#figure(
+  image("Images/Emissive.png", width: imageWidth),
+  caption: [Blue emissive paint on the enemy sails],
+) <fig:emissive>
+
+#figure(
+  image("Images/PBR.png", width: imageWidth),
+  caption: [Sky reflection on the metallic parts of the ship thanks to PBR],
+) <fig:pbr>
+
+#figure(
+  image("Images/Sky.png", width: imageWidth),
+  caption: [Sky box],
+) <fig:sky>
 
 = Discussions/Conclusions
 During the development, we didn't encountered much issues. We just spent a lot of time finding good assets for the game and solving orientation issues with those models.
@@ -515,11 +571,13 @@ During the development, we didn't encountered much issues. We just spent a lot o
 = References
 Every part of the code is original, but we use several tutorials or references during the development :
 - the camera shaking part mechanic is greatly inspired by #link("https://gamedev.stackexchange.com/a/47565")[\miklatov answer on this Stack Exchange discussion]\;
-- the component system was inspired by #link("https://docs.vulkan.org/tutorial/latest/Building_a_Simple_Engine/Engine_Architecture/03_component_systems.html")[this Vulkan tutorial].
+- the component system was inspired by #link("https://docs.vulkan.org/tutorial/latest/Building_a_Simple_Engine/Engine_Architecture/03_component_systems.html")[this Vulkan tutorial];
+- the high quality water is a based upon #link("https://alextardif.com/Water.html")[this Direct X tutorial by Alex Tardif].
 
 = AI-assisted coding references
 During the development, we used generative AI when some part require learning a lot of non-graphical related topic to implement. So we always designed everything without AI, but sometime use AI to implement some designs such as :
 - Copilot helped implementing the collision solving system (not detection);
-- Copilot helped implementing the glTF model loading.
+- Copilot helped implementing the glTF model loading;
+- Lumo has been used to have some guidelines during the PBR shaders development;
 
-Thus, we estimate that 8% of the code was generated by an LLM.
+Thus, we estimate that 5% of the code was generated by an LLM.
