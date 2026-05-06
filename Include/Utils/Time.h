@@ -105,6 +105,7 @@ class Time
     static inline bool paused;
 
     [[nodiscard]] static Instant now();
+    [[nodiscard]] static Duration elapsed();
 
     static void initialize();
     static void update(float delta_time);

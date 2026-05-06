@@ -10,6 +10,8 @@
 
 #include "Events/EventQueue.h"
 #include "Events/WindowResized.h"
+#include "Resources/Texture.h"
+#include "Utils/Color.h"
 #include "Utils/Log.h"
 #include "Utils/Profiling.h"
 
@@ -87,7 +89,7 @@ const char *glDebugSeverityName(GLenum severity)
     throw std::runtime_error(message);
 }
 
-Window::Window() : is_full_screen_(false)
+Window::Window() : is_full_screen_(false), width_(DEFAULT_WIDTH), height_(DEFAULT_HEIGHT)
 {
     glfwSetErrorCallback(glfwErrorCallback);
     glfwInit();
@@ -103,6 +105,7 @@ Window::Window() : is_full_screen_(false)
 
     glewInit();
     SetGpuProfilingContext;
+    createFrameBuffer(DEFAULT_WIDTH, DEFAULT_HEIGHT);
 
 #if defined(OE_DEBUG)
     glEnable(GL_DEBUG_OUTPUT);
@@ -162,10 +165,22 @@ Window::Window() : is_full_screen_(false)
         (void)window;
         EventQueue::post<event::WindowResized>(static_cast<uint32_t>(width), static_cast<uint32_t>(height));
     });
+
+    EventQueue::registerCallback<event::WindowResized>([&](const event::WindowResized &event) {
+        deleteColorDepthNormalsTextures();
+        createColorDepthNormalsTextures(event.width, event.height);
+
+        width_ = event.width;
+        height_ = event.height;
+
+        glViewport(0, 0, static_cast<GLsizei>(event.width), static_cast<GLsizei>(event.height));
+    });
 }
 
 Window::~Window()
 {
+    deleteFrameBuffer();
+
     glfwTerminate();
 }
 
@@ -174,11 +189,67 @@ bool Window::shouldClose() const
     return glfwWindowShouldClose(handle_) == GLFW_TRUE;
 }
 
+void Window::startRendering() const
+{
+    glBindFramebuffer(GL_FRAMEBUFFER, frame_buffer_);
+
+    glClearColor(color::SKY.r, color::SKY.g, color::SKY.b, color::SKY.a);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+void Window::bindFrameBuffer() const
+{
+    glBindFramebuffer(GL_FRAMEBUFFER, frame_buffer_);
+}
+
+void Window::unbindFrameBuffer() const
+{
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void Window::mapFrameBuffer(const std::vector<std::weak_ptr<resource::Shader>> &shaders) const
+{
+    glCopyImageSubData(color_texture_, GL_TEXTURE_2D, 0, 0, 0, 0, color_texture_snapshot_, GL_TEXTURE_2D, 0, 0, 0, 0,
+                       static_cast<GLsizei>(width_), static_cast<GLsizei>(height_), 1);
+    glCopyImageSubData(depth_texture_, GL_TEXTURE_2D, 0, 0, 0, 0, depth_texture_snapshot_, GL_TEXTURE_2D, 0, 0, 0, 0,
+                       static_cast<GLsizei>(width_), static_cast<GLsizei>(height_), 1);
+    glCopyImageSubData(normals_texture_, GL_TEXTURE_2D, 0, 0, 0, 0, normals_texture_snapshot_, GL_TEXTURE_2D, 0, 0, 0,
+                       0, static_cast<GLsizei>(width_), static_cast<GLsizei>(height_), 1);
+
+    for (auto weak_shader : shaders)
+    {
+        auto shader = weak_shader.lock();
+        shader->bind();
+        
+        const auto color_location = shader->getUniformLocation("u_HDRMap");
+        glBindTextureUnit(resource::Texture::COLOR_SLOT, color_texture_snapshot_);
+        glUniform1i(color_location, static_cast<GLint>(resource::Texture::COLOR_SLOT));
+
+        const auto depth_location = shader->getUniformLocation("u_DepthMap");
+        glBindTextureUnit(resource::Texture::DEPTH_SLOT, depth_texture_snapshot_);
+        glUniform1i(depth_location, static_cast<GLint>(resource::Texture::DEPTH_SLOT));
+
+        const auto normals_location = shader->getUniformLocation("u_NormalMap");
+        glBindTextureUnit(resource::Texture::NORMALS_SLOT, normals_texture_snapshot_);
+        glUniform1i(normals_location, static_cast<GLint>(resource::Texture::NORMALS_SLOT));
+    }
+}
+
 void Window::endFrame() const
 {
     ProfileScope;
 
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, frame_buffer_);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+
+    glBlitFramebuffer(
+        0, 0, static_cast<GLint>(width_), static_cast<GLint>(height_),
+        0, 0, static_cast<GLint>(width_), static_cast<GLint>(height_),
+        GL_COLOR_BUFFER_BIT,
+        GL_NEAREST
+    );
     glfwSwapBuffers(handle_);
+
     CollectGpuProfilingEvents;
     glfwPollEvents();
 }
@@ -266,4 +337,90 @@ void Window::toggleFullScreen()
 void Window::close()
 {
     glfwSetWindowShouldClose(handle_, GLFW_TRUE);
+}
+
+void Window::createColorDepthNormalsTextures(uint32_t width, uint32_t height)
+{
+    glBindFramebuffer(GL_FRAMEBUFFER, frame_buffer_);
+
+    constexpr const GLenum COLOR_ATTACHMENTS[] = {
+        GL_COLOR_ATTACHMENT0, // color
+        GL_COLOR_ATTACHMENT1, // normals
+    };
+
+    glCreateTextures(GL_TEXTURE_2D, 1, &color_texture_);
+    glTextureStorage2D(color_texture_, 1, GL_RGBA16F, static_cast<int>(width), static_cast<int>(height));
+    glTextureParameteri(color_texture_, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTextureParameteri(color_texture_, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTextureParameteri(color_texture_, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(color_texture_, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glNamedFramebufferTexture(frame_buffer_, COLOR_ATTACHMENTS[0], color_texture_, 0);
+
+    glCreateTextures(GL_TEXTURE_2D, 1, &color_texture_snapshot_);
+    glTextureStorage2D(color_texture_snapshot_, 1, GL_RGBA16F, static_cast<int>(width), static_cast<int>(height));
+    glTextureParameteri(color_texture_snapshot_, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTextureParameteri(color_texture_snapshot_, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTextureParameteri(color_texture_snapshot_, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(color_texture_snapshot_, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glCreateTextures(GL_TEXTURE_2D, 1, &depth_texture_);
+    glTextureStorage2D(depth_texture_, 1, GL_DEPTH_COMPONENT32F, static_cast<int>(width), static_cast<int>(height));
+    glTextureParameteri(depth_texture_, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(depth_texture_, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTextureParameteri(depth_texture_, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(depth_texture_, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glNamedFramebufferTexture(frame_buffer_, GL_DEPTH_ATTACHMENT, depth_texture_, 0);
+
+    glCreateTextures(GL_TEXTURE_2D, 1, &depth_texture_snapshot_);
+    glTextureStorage2D(depth_texture_snapshot_, 1, GL_DEPTH_COMPONENT32F, static_cast<int>(width), static_cast<int>(height));
+    glTextureParameteri(depth_texture_snapshot_, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(depth_texture_snapshot_, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTextureParameteri(depth_texture_snapshot_, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(depth_texture_snapshot_, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glCreateTextures(GL_TEXTURE_2D, 1, &normals_texture_);
+    glTextureStorage2D(normals_texture_, 1, GL_RGBA16F, static_cast<int>(width), static_cast<int>(height));
+    glTextureParameteri(normals_texture_, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTextureParameteri(normals_texture_, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTextureParameteri(normals_texture_, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(normals_texture_, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glNamedFramebufferTexture(frame_buffer_, COLOR_ATTACHMENTS[1], normals_texture_, 0);
+
+    glCreateTextures(GL_TEXTURE_2D, 1, &normals_texture_snapshot_);
+    glTextureStorage2D(normals_texture_snapshot_, 1, GL_RGBA16F, static_cast<int>(width), static_cast<int>(height));
+    glTextureParameteri(normals_texture_snapshot_, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTextureParameteri(normals_texture_snapshot_, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTextureParameteri(normals_texture_snapshot_, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(normals_texture_snapshot_, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glNamedFramebufferDrawBuffers(frame_buffer_, 2, COLOR_ATTACHMENTS);
+
+    if (glCheckNamedFramebufferStatus(frame_buffer_, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+    {
+        LOG_ERROR("failed to update the frame buffer");
+        throw std::runtime_error("failed to update the frame buffer");
+    }
+}
+
+void Window::deleteColorDepthNormalsTextures()
+{
+    glDeleteTextures(1, &color_texture_);
+    glDeleteTextures(1, &depth_texture_);
+    glDeleteTextures(1, &normals_texture_);
+    glDeleteTextures(1, &color_texture_snapshot_);
+    glDeleteTextures(1, &depth_texture_snapshot_);
+    glDeleteTextures(1, &normals_texture_snapshot_);
+}
+
+void Window::createFrameBuffer(uint32_t width, uint32_t height)
+{
+    glCreateFramebuffers(1, &frame_buffer_);
+
+    createColorDepthNormalsTextures(width, height);
+}
+
+void Window::deleteFrameBuffer()
+{
+    deleteColorDepthNormalsTextures();
+    glDeleteFramebuffers(1, &frame_buffer_);
 }

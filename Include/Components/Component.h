@@ -17,6 +17,7 @@ class Component : public std::enable_shared_from_this<Component>
     virtual void initialize();
     virtual void update();
     virtual void render(glm::mat4 &transform) const;
+    virtual void renderDefered(glm::mat4 &transform) const;
 
     void setOwner(std::shared_ptr<GameObject> game_object);
     [[nodiscard]] std::shared_ptr<GameObject> getOwner() const;

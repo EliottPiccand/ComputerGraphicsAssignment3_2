@@ -15,7 +15,7 @@ vec3 gammaCorrection(vec3 color)
 
 vec3 toneMapping(vec3 color)
 {
-    color = ACESFilm(color);
-    color = gammaCorrection(color);
+    // color = ACESFilm(color);
+    // color = gammaCorrection(color);
     return color;
 }

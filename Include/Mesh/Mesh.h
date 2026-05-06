@@ -19,7 +19,7 @@ constexpr const GLenum GL_INDEX_TYPE = GL_UNSIGNED_SHORT;
 template <typename V> using Mesh = std::pair<std::vector<V>, std::vector<IndexType>>;
 
 /// Plane facing +Z, indices made to be drawn as a triangle strip
-[[nodiscard]] Mesh<VertexWater> generateQuadPlane(float side_length, size_t quads_per_side);
+[[nodiscard]] Mesh<VertexWater> generateQuadPlane(size_t tiles_along_x, size_t tiles_along_y, float tile_size);
 
 /// height along +Z, resolution is the amount of segments that each disk is approximated to
 [[nodiscard]] Mesh<VertexPBR> generateCylinder(float height, float radius, size_t resolution);

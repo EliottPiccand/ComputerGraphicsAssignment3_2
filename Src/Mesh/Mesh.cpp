@@ -8,56 +8,61 @@
 #include "Utils/Math.h"
 #include "Utils/Profiling.h"
 
-Mesh<VertexWater> generateQuadPlane(float side_length, size_t quads_per_side)
+Mesh<VertexWater> generateQuadPlane(size_t tiles_along_x, size_t tiles_along_y, float tile_size)
 {
     ProfileScope;
 
-    LOG_DEBUG("generating mesh: quad plane with side_length={:.3f} quads_per_side={}", side_length, quads_per_side);
+    LOG_DEBUG("generating mesh: quad plane with tiles_along_x={} tiles_along_y={} tile_size={:.3f}", tiles_along_x,
+              tiles_along_y, tile_size);
 
-    const size_t vertex_count = (quads_per_side + 1) * (quads_per_side + 1);
-    const size_t degenerated_triangles_count = 2 * (quads_per_side - 1);
-
+    const size_t vertex_count = (tiles_along_x + 1) * (tiles_along_y + 1);
     std::vector<VertexWater> vertices;
     vertices.reserve(vertex_count);
     std::vector<IndexType> indices;
-    indices.reserve(vertex_count + degenerated_triangles_count);
+    indices.reserve(tiles_along_x * tiles_along_y * 6);
 
-    float half_size = 0.5f * side_length;
-    float quad_size = side_length / static_cast<float>(quads_per_side);
+    const float half_size_x = 0.5f * static_cast<float>(tiles_along_x) * tile_size;
+    const float half_size_y = 0.5f * static_cast<float>(tiles_along_y) * tile_size;
+    const float inverse_size_x = 1.0f / (2.0f * half_size_x);
+    const float inverse_size_y = 1.0f / (2.0f * half_size_y);
 
     // Generate vertices
-    for (size_t y = 0; y <= quads_per_side; ++y)
+    for (size_t y = 0; y <= tiles_along_y; ++y)
     {
-        for (size_t x = 0; x <= quads_per_side; ++x)
+        for (size_t x = 0; x <= tiles_along_x; ++x)
         {
             vertices.push_back({
                 .position =
                     {
-                        static_cast<float>(x) * quad_size - half_size,
-                        static_cast<float>(y) * quad_size - half_size,
+                        static_cast<float>(x) * tile_size - half_size_x,
+                        static_cast<float>(y) * tile_size - half_size_y,
                         0.0f,
+                    },
+                .uv =
+                    {
+                        static_cast<float>(x) * tile_size,
+                        static_cast<float>(y) * tile_size,
+                        static_cast<float>(x) * inverse_size_x,
+                        static_cast<float>(y) * inverse_size_y,
                     },
             });
         }
     }
 
     // Generate indices
-    for (size_t y = 0; y < quads_per_side; ++y)
+    for (size_t y = 0; y < tiles_along_y; ++y)
     {
-        if (y > 0)
+        for (size_t x = 0; x < tiles_along_x; ++x)
         {
-            // Degenerate: repeat first vertex of new row
-            indices.push_back(static_cast<IndexType>(y * (quads_per_side + 1)));
-        }
-        for (size_t x = 0; x <= quads_per_side; ++x)
-        {
-            indices.push_back(static_cast<IndexType>((y + 1) * (quads_per_side + 1) + x));
-            indices.push_back(static_cast<IndexType>(y * (quads_per_side + 1) + x));
-        }
-        if (y < quads_per_side - 1)
-        {
-            // Degenerate: repeat last vertex of current row
-            indices.push_back(static_cast<IndexType>(((y + 1) * (quads_per_side + 1) + quads_per_side)));
+            // clang-format off
+            indices.push_back(static_cast<IndexType>( y      * (tiles_along_x + 1) + x    ));
+            indices.push_back(static_cast<IndexType>( y      * (tiles_along_x + 1) + x + 1));
+            indices.push_back(static_cast<IndexType>((y + 1) * (tiles_along_x + 1) + x    ));
+
+            indices.push_back(static_cast<IndexType>( y      * (tiles_along_x + 1) + x + 1));
+            indices.push_back(static_cast<IndexType>((y + 1) * (tiles_along_x + 1) + x + 1));
+            indices.push_back(static_cast<IndexType>((y + 1) * (tiles_along_x + 1) + x    ));
+            // clang-format on
         }
     }
 

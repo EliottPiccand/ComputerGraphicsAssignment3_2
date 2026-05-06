@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -22,10 +23,13 @@ class Shader
 
     static inline constexpr const std::string_view DIRECTORY = "Shaders";
 
-    [[nodiscard]] static std::shared_ptr<Shader> load(const std::filesystem::path &vertex_path,
-                                                      const std::filesystem::path &fragment_path,
-                                                      const Defines defines = {},
-                                                      const std::vector<std::filesystem::path> &shared_code_paths = {});
+    [[nodiscard]] static std::shared_ptr<Shader> load(
+        const std::filesystem::path &vertex_path, const std::filesystem::path &fragment_path,
+        const Defines defines = {}, const std::vector<std::filesystem::path> &shared_code_paths = {},
+        const std::optional<std::reference_wrapper<const std::filesystem::path>> &tesselation_control_path =
+            std::nullopt,
+        const std::optional<std::reference_wrapper<const std::filesystem::path>> &tesselation_evaluation_path =
+            std::nullopt);
 
     Shader(GLuint program);
     ~Shader();
@@ -35,10 +39,13 @@ class Shader
     void setUniform(const char *name, float value) const;
     void setUniform(const char *name, int32_t value) const;
     void setUniform(const char *name, uint32_t value) const;
+    void setUniform(const char *name, const glm::vec2 &value) const;
     void setUniform(const char *name, const glm::vec3 &value) const;
     void setUniform(const char *name, const glm::vec4 &value) const;
     void setUniform(const char *name, const glm::mat3 &value) const;
     void setUniform(const char *name, const glm::mat4 &value) const;
+
+    GLint getUniformLocation(const char *name) const;
 
     void setUniformArrayElement(std::string_view name, size_t index, const glm::vec3 &value) const;
 
@@ -46,10 +53,11 @@ class Shader
 
   protected:
     static std::string buildDefinesCode(const Defines defines);
-    static std::tuple<std::string, std::string> buildSharedCode(
+    static std::tuple<std::string, std::string, std::string, std::string> buildSharedCode(
         const std::vector<std::filesystem::path> &shared_code_paths);
     static std::string buildShaderCode(std::string_view type, const std::filesystem::path &path,
                                        const std::string &defines, const std::string &shared_code);
+    static bool compileShader(GLuint shader, std::string code);
 
   private:
     const GLuint program_;

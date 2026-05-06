@@ -15,6 +15,11 @@ void Component::render(glm::mat4 &transform) const
     (void)transform;
 }
 
+void Component::renderDefered(glm::mat4 &transform) const
+{
+    (void)transform;
+}
+
 void Component::setOwner(std::shared_ptr<GameObject> game_object)
 {
     owner_ = game_object;

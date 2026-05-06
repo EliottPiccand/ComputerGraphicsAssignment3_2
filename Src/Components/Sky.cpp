@@ -7,6 +7,7 @@
 #include "Resources/Model.h"
 #include "Resources/ResourceLoader.h"
 #include "Resources/Shader.h"
+#include "Resources/Texture.h"
 #include "Utils/Profiling.h"
 
 using namespace component;
@@ -23,7 +24,6 @@ void Sky::render(glm::mat4 &transform) const
 
     (void)transform;
 
-    constexpr const GLenum TEXTURE_SLOT = GL_TEXTURE4;
     static std::weak_ptr weak_sky_shader = ResourceLoader::get<resource::Shader>("Sky");
     static std::shared_ptr<resource::Model> cube_model = ResourceLoader::get<resource::Model>("SkyCube");
 
@@ -36,13 +36,13 @@ void Sky::render(glm::mat4 &transform) const
     auto sky_shader = weak_sky_shader.lock();
     sky_shader->bind();
 
-    texture->bind(TEXTURE_SLOT, sky_shader, "u_EnvironmentMap");
+    texture->bind(resource::Texture::ENVIRONMENT_MAP_SLOT, sky_shader, "u_EnvironmentMap");
     cube_model->draw(sky_shader);
 
     for (auto weak_shader : shaders_)
     {
         auto shader = weak_shader.lock();
         shader->bind();
-        texture->bind(TEXTURE_SLOT, shader, "u_EnvironmentMap");
+        texture->bind(resource::Texture::ENVIRONMENT_MAP_SLOT, shader, "u_EnvironmentMap");
     }
 }

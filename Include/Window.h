@@ -1,10 +1,13 @@
 #pragma once
 
+#include "Resources/Shader.h"
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <utility>
 
 #include <Lib/glfw.h>
+#include <vector>
 
 class Input;
 
@@ -19,6 +22,12 @@ class Window
     ~Window();
 
     [[nodiscard]] bool shouldClose() const;
+    void startRendering() const;
+    
+    void bindFrameBuffer() const;
+    void unbindFrameBuffer() const;
+    void mapFrameBuffer(const std::vector<std::weak_ptr<resource::Shader>> &shaders) const;
+    
     void endFrame() const;
 
     void setTitle(std::string title) const;
@@ -40,4 +49,20 @@ class Window
     int non_full_screen_width_;
     int non_full_screen_height_;
     bool is_full_screen_;
+
+    uint32_t width_;
+    uint32_t height_;
+
+    GLuint frame_buffer_;
+    GLuint color_texture_;
+    GLuint depth_texture_;
+    GLuint normals_texture_;
+    GLuint color_texture_snapshot_;
+    GLuint depth_texture_snapshot_;
+    GLuint normals_texture_snapshot_;
+
+    void createColorDepthNormalsTextures(uint32_t width, uint32_t height);
+    void deleteColorDepthNormalsTextures();
+    void createFrameBuffer(uint32_t width, uint32_t height);
+    void deleteFrameBuffer();
 };

@@ -47,7 +47,7 @@
 #include "Utils/Random.h"
 #include "Utils/Time.h"
 
-constexpr const bool DEBUG_SCENE = false;
+constexpr const bool DEBUG_SCENE = true;
 
 #pragma region model_settings
 
@@ -146,7 +146,6 @@ constexpr const float MESSAGE_WIDTH = WORLD_WIDTH * 3.0f / 4.0f;
 constexpr const float MESSAGE_HEIGHT = MESSAGE_WIDTH * 9.0f / 16.0f;
 constexpr const glm::vec3 MESSAGE_POSITION = UP * 60.0f;
 
-constexpr const std::string_view HIT_VIGNETTE = "Effects/HitVignette.png";
 constexpr const Duration HIT_VIGNETTE_DURATION = Duration::milliseconds(800.0f);
 
 #pragma endregion model_settings
@@ -300,7 +299,7 @@ Application::Application() : should_close_(false), free_view_override_(false)
     Input::bindKey(Input::Action::DebugMoveTargetWest,  GLFW_KEY_LEFT      );
     Input::bindKey(Input::Action::DebugAimAndFire,      GLFW_KEY_F         );
     Input::bindKey(Input::Action::CycleCameras,         GLFW_KEY_V         );
-    Input::bindKey(Input::Action::TogglePhysics,        GLFW_KEY_P         );
+    Input::bindKey(Input::Action::PauseTime,            GLFW_KEY_P         );
     Input::bindKey(Input::Action::RestartGame,          GLFW_KEY_G         );
     Input::bindKey(Input::Action::QuitGame,             GLFW_KEY_ESCAPE    );
 
@@ -324,7 +323,13 @@ Application::Application() : should_close_(false), free_view_override_(false)
     }, shared_shader_code);
     ResourceLoader::load<resource::Shader>("WorldColor",   "WorldColor.vert",   "WorldColor.frag"  );
     ResourceLoader::load<resource::Shader>("WorldTexture", "WorldTexture.vert", "WorldTexture.frag");
-    ResourceLoader::load<resource::Shader>("Water",        "Water.vert",        "Water.frag",        resource::Shader::Defines{}, shared_shader_code);
+    ResourceLoader::load<resource::Shader>("Water",        "Water.vert",        "Water.frag", resource::Shader::Defines{
+        {std::string_view("MAX_DIRECTIONAL_LIGHTS"), std::optional(std::to_string(component::DirectionalLight::MAX_DIRECTIONAL_LIGHTS))}
+    }, shared_shader_code
+        ,
+        std::optional(std::filesystem::path("WaterTCS.glsl")),
+        std::optional(std::filesystem::path("WaterTES.glsl"))
+    );
     ResourceLoader::load<resource::Shader>("Particle",     "Particle.vert",     "Particle.frag"    );
     ResourceLoader::load<resource::Shader>("UI",           "UI.vert",           "UI.frag"          );
     
@@ -339,11 +344,15 @@ Application::Application() : should_close_(false), free_view_override_(false)
     ResourceLoader::load<resource::Texture>("MissingAlbedo",              "MissingAlbedo.png",              resource::Texture::Type::Albedo                 );
     ResourceLoader::load<resource::Texture>("MissingMetallicRoughness",   "MissingMetallicRoughness.png",   resource::Texture::Type::MetallicRoughness      );
     ResourceLoader::load<resource::Texture>("MissingNormalMap",           "MissingNormalMap.png",           resource::Texture::Type::NormalMap              );
-    ResourceLoader::load<resource::Texture>("Sky/SkyBox",                 "Sky/SkyBox.hdr",                resource::Texture::Type::Albedo,            true);
+    ResourceLoader::load<resource::Texture>("Sky/SkyBox",                 "Sky/SkyBox.hdr",                 resource::Texture::Type::Albedo,            true);
     ResourceLoader::load<resource::Texture>("Ship/PlayerVariant",         "Ship/SailsRopePlayerAlbedo.png", resource::Texture::Type::Albedo                 );
     ResourceLoader::load<resource::Texture>("Effect/HitVignette",         "Effects/HitVignette.png",        resource::Texture::Type::Albedo                 );
     ResourceLoader::load<resource::Texture>("Message/Victory",            "Messages/Victory.png",           resource::Texture::Type::Albedo                 );
     ResourceLoader::load<resource::Texture>("Message/Defeat",             "Messages/Defeat.png",            resource::Texture::Type::Albedo                 );
+    ResourceLoader::load<resource::Texture>("Water/NormalMap1",           "Water/NormalMap1.png",           resource::Texture::Type::NormalMap              );
+    ResourceLoader::load<resource::Texture>("Water/NormalMap2",           "Water/NormalMap2.png",           resource::Texture::Type::NormalMap              );
+    ResourceLoader::load<resource::Texture>("Water/FoamMap",              "Water/FoamMap.png",              resource::Texture::Type::Noise                  );
+    ResourceLoader::load<resource::Texture>("Water/NoiseMap",             "Water/NoiseMap.png",             resource::Texture::Type::Noise                  );
 
     /******************************************************************************/
     /*                                   Models                                   */
@@ -448,6 +457,7 @@ Application::Application() : should_close_(false), free_view_override_(false)
     component::DirectionalLight::initialize({
         ResourceLoader::get<resource::Shader>("PBR"),
         ResourceLoader::get<resource::Shader>("PBR#FLAP"),
+        ResourceLoader::get<resource::Shader>("Water"),
     });
     ParticleSystem::initialize();
 
@@ -462,18 +472,6 @@ Application::Application() : should_close_(false), free_view_override_(false)
     };
     const resource::Model::MaterialsOverride ENEMY_SHIP_MATERIALS_OVERRIDE = {};
 
-    if constexpr (DEBUG_SCENE)
-    {
-        main_view_ = View::FreeCamera;
-        Singleton::view = main_view_;
-        window_->captureMouse();
-    }
-    else
-    {
-        main_view_ = View::Top;
-        Singleton::view = main_view_;
-    }
-
     /******************************************************************************/
     /*                                   Scene                                    */
     /******************************************************************************/
@@ -485,6 +483,7 @@ Application::Application() : should_close_(false), free_view_override_(false)
         scene_root_->addComponent<component::Sky>(ResourceLoader::get<resource::Texture>("Sky/SkyBox"), std::vector{
             std::weak_ptr(ResourceLoader::get<resource::Shader>("PBR")),
             std::weak_ptr(ResourceLoader::get<resource::Shader>("PBR#FLAP")),
+            std::weak_ptr(ResourceLoader::get<resource::Shader>("Water")),
         });
         scene_root_->addComponent<component::DirectionalLight>(
             glm::normalize(2.0f * DOWN + WEST + SOUTH),
@@ -756,16 +755,24 @@ Application::Application() : should_close_(false), free_view_override_(false)
         }
     }();
 
+    main_view_ = View::Top;
+    if constexpr (DEBUG_SCENE)
+    {
+        free_view_override_ = true;
+        free_view_controls_.lock()->active = true;
+        window_->captureMouse();
+    }
+    else
+    {
+        Singleton::view = main_view_;
+    }
+
     scene_root_->initialize();
     restart();
 
     /******************************************************************************/
     /*                              Events Callbacks                              */
     /******************************************************************************/
-
-    EventQueue::registerCallback<event::WindowResized>([](const event::WindowResized &event) {
-        glViewport(0, 0, static_cast<GLsizei>(event.width), static_cast<GLsizei>(event.height));
-    });
 
     const auto water_id = water->getId();
     EventQueue::registerCallback<event::Fire>([this, water_id](const event::Fire &event) {
@@ -875,8 +882,7 @@ Application::Application() : should_close_(false), free_view_override_(false)
         auto cannon_ball_model = cannon_ball->addChild();
         cannon_ball_model->addComponent<component::Transform>(CANNON_BALL_MODEL_TRANSLATION, CANNON_BALL_MODEL_ROTATION,
                                                               CANNON_BALL_MODEL_SCALE);
-        cannon_ball_model->addComponent<component::ModelInstance>(
-            ResourceLoader::getAsset<resource::Model>(CANNON_BALL_MODEL));
+        cannon_ball_model->addComponent<component::ModelInstance>(ResourceLoader::get<resource::Model>("CannonBall"));
         cannon_ball_model->addComponent<component::Animation>(
             [](std::shared_ptr<component::Transform> transform, std::shared_ptr<GameObject> game_object) {
                 (void)game_object;
@@ -1171,8 +1177,7 @@ void Application::render() const
     ProfileScope;
     ProfileScopeGPU("Application::render");
 
-    glClearColor(color::SKY.r, color::SKY.g, color::SKY.b, color::SKY.a);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    window_->startRendering();
 
     auto camera = Singleton::active_camera.lock();
     camera->bind();
@@ -1202,7 +1207,16 @@ void Application::renderPass(std::shared_ptr<component::Camera3D> camera) const
     ProfileScope;
     ProfileScopeGPU("Application::renderPass");
 
+    static const std::vector<std::weak_ptr<resource::Shader>> shaders_for_frame_buffer_mapping = {
+        std::weak_ptr(ResourceLoader::get<resource::Shader>("Water")),
+    };
+
+    window_->bindFrameBuffer();
     scene_root_->render();
+    
+    window_->mapFrameBuffer(shaders_for_frame_buffer_mapping);
+    scene_root_->renderDefered();
+    
     ParticleSystem::render();
     camera->renderEffect();
 }

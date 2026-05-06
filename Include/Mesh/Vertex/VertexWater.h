@@ -5,6 +5,7 @@
 struct VertexWater
 {
     glm::vec3 position;
+    glm::vec4 uv;
 
     static void setupVertexArray();
 };

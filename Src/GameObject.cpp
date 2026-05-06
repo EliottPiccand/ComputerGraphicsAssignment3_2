@@ -126,3 +126,25 @@ void GameObject::render(const glm::mat4 &parent_transform) const
         child->render(transform);
     }
 }
+
+void GameObject::renderDefered(const glm::mat4 &parent_transform) const
+{
+    if (!visible)
+    {
+        return;
+    }
+
+    assert(initialized_ && "GameObject::renderDefered called while uninitialized");
+
+    glm::mat4 transform = parent_transform;
+
+    for (const auto &component : components_)
+    {
+        component->renderDefered(transform);
+    }
+
+    for (const auto &child : children_)
+    {
+        child->renderDefered(transform);
+    }
+}

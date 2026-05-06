@@ -34,6 +34,7 @@ uniform sampler2D u_EmissiveTexture;
 uniform sampler2D u_EnvironmentMap;
 
 out vec4 out_Color;
+out vec4 out_Normal;
 
 const float PI = 3.14159265359;
 
@@ -180,4 +181,5 @@ void main()
     vec3 color = ambient + Lo + emissive;
 
     out_Color = vec4(toneMapping(color), albedoWithAlpha.a);
+    out_Normal = vec4(N, 0.0);
 }

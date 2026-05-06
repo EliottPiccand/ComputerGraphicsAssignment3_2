@@ -24,6 +24,7 @@ class GameObject : public std::enable_shared_from_this<GameObject>
     void initialize();
     void update();
     void render(const glm::mat4 &transform = glm::mat4(1.0f)) const;
+    void renderDefered(const glm::mat4 &transform = glm::mat4(1.0f)) const;
 
     GameObjectId getId() const;
 

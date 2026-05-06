@@ -10,6 +10,7 @@
 #include <Lib/tiny_gltf.h>
 
 #include "Resources/ResourceLoader.h"
+#include "Resources/Texture.h"
 #include "Utils/Log.h"
 #include "Utils/Path.h"
 #include "Utils/Profiling.h"
@@ -589,7 +590,9 @@ std::shared_ptr<Model> Model::load(const std::filesystem::path &partial_path)
         {
             if (tg3_str_equals_cstr(extension.name, "KHR_materials_specular"))
             {
-                LOG_WARNING("material {} uses the 'KHR_materials_specular' extension, but this is incompatible with the metallic/roughness pipeline", material_index);
+                LOG_WARNING("material {} uses the 'KHR_materials_specular' extension, but this is incompatible with "
+                            "the metallic/roughness pipeline",
+                            material_index);
             }
             else
             {
@@ -632,12 +635,6 @@ std::shared_ptr<Model> Model::load(const std::filesystem::path &partial_path)
 #pragma clang diagnostic pop
 }
 
-constexpr const GLenum BASE_COLOR_TEXTURE_SLOT = GL_TEXTURE0;
-constexpr const GLenum METALLIC_ROUGHNESS_TEXTURE_SLOT = GL_TEXTURE1;
-constexpr const GLenum NORMAL_MAP_TEXTURE_SLOT = GL_TEXTURE2;
-constexpr const GLenum EMISSIVE_TEXTURE_SLOT = GL_TEXTURE3;
-constexpr const GLenum ENVIRONMENT_MAP_TEXTURE_SLOT = GL_TEXTURE4;
-
 void Model::draw(std::shared_ptr<resource::Shader> shader, MaterialsOverride materials_override) const
 {
     ProfileScope;
@@ -668,13 +665,18 @@ void Model::drawInner(std::shared_ptr<resource::Shader> shader, MaterialsOverrid
         auto texture = weak_texture.lock();
 
         if (texture != nullptr)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnrvo"
             return texture;
+#pragma clang diagnostic pop
 
         switch (type)
         {
         case Texture::Type::Albedo:
             [[fallthrough]];
         case Texture::Type::Emissive:
+            [[fallthrough]];
+        case Texture::Type::Noise:
             return Texture::MISSING_ALBEDO;
         case Texture::Type::MetallicRoughness:
             return Texture::MISSING_METALLIC_ROUGHNESS;
@@ -705,26 +707,27 @@ void Model::drawInner(std::shared_ptr<resource::Shader> shader, MaterialsOverrid
         // Albedo
         shader->setUniform("u_AlbedoColor", material.albedo_color);
         getTexture(material.albedo_texture, Texture::Type::Albedo)
-            ->bind(BASE_COLOR_TEXTURE_SLOT, shader, "u_AlbedoTexture");
+            ->bind(Texture::BASE_COLOR_SLOT, shader, "u_AlbedoTexture");
 
         // Metallic / Roughness
         shader->setUniform("u_MetallicFactor", material.metallic_factor);
         shader->setUniform("u_RoughnessFactor", material.roughness_factor);
         getTexture(material.metallic_roughness_texture, Texture::Type::MetallicRoughness)
-            ->bind(METALLIC_ROUGHNESS_TEXTURE_SLOT, shader, "u_MetallicRoughnessTexture");
+            ->bind(Texture::METALLIC_ROUGHNESS_SLOT, shader, "u_MetallicRoughnessTexture");
 
         // Normal Map
-        getTexture(material.normal_map, Texture::Type::NormalMap)->bind(NORMAL_MAP_TEXTURE_SLOT, shader, "u_NormalMap");
+        getTexture(material.normal_map, Texture::Type::NormalMap)
+            ->bind(Texture::NORMAL_MAP_SLOT, shader, "u_NormalMap");
 
         // Emissive
         shader->setUniform("u_EmissiveColor", glm::vec3(material.emissive_color));
         getTexture(material.emissive_texture, Texture::Type::Emissive)
-            ->bind(EMISSIVE_TEXTURE_SLOT, shader, "u_EmissiveTexture");
+            ->bind(Texture::EMISSIVE_SLOT, shader, "u_EmissiveTexture");
 
         // Environment Map
         if (ResourceLoader::isLoaded<Texture>("Sky/SkyBox"))
         {
-            ResourceLoader::get<Texture>("Sky/SkyBox")->bind(ENVIRONMENT_MAP_TEXTURE_SLOT, shader, "u_EnvironmentMap");
+            ResourceLoader::get<Texture>("Sky/SkyBox")->bind(Texture::ENVIRONMENT_MAP_SLOT, shader, "u_EnvironmentMap");
         }
 
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.index_buffer);

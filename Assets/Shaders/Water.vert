@@ -1,14 +1,16 @@
 #version 460 core
 
-in vec3 in_Pos;
+in vec3 position;
+in vec4 texCoord0;
 
-uniform mat4 u_Model;
-uniform mat4 u_View;
-uniform mat4 u_Projection;
+out VS_OUT
+{
+    vec3 position;
+    vec4 texCoord0;
+} vs_out;
 
 void main()
 {
-    vec4 posWorld = u_Model * vec4(in_Pos, 1.0);
-
-    gl_Position = u_Projection * u_View * posWorld;
+    vs_out.position  = position;
+    vs_out.texCoord0 = texCoord0;
 }

@@ -47,6 +47,7 @@ class CapabilityStateSaver
 #define _RAII_1(type, ...) _RAII_2(__LINE__, type __VA_OPT__(,) __VA_ARGS__)
 
 #define SCOPE_DEPTH_MASK(state) _RAII_1(DepthMaskStateSaver, state)
+#define SCOPE_ENABLE(cap) _RAII_1(CapabilityStateSaver, cap, true)
 #define SCOPE_DISABLE(cap) _RAII_1(CapabilityStateSaver, cap, false)
 
 #pragma clang diagnostic pop

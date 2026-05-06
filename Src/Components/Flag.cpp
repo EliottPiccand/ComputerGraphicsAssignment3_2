@@ -3,6 +3,7 @@
 #include "Resources/ResourceLoader.h"
 #include "Resources/Shader.h"
 #include "Utils/Profiling.h"
+#include "Utils/Time.h"
 
 using namespace component;
 

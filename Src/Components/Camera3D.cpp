@@ -130,7 +130,7 @@ void Camera3D::renderEffect() const
     shader->setUniform("u_Model", glm::mat3(glm::scale(glm::mat4(1.0f), {2.0f, 2.0f, 1.0f})));
     shader->setUniform("u_Alpha", std::sqrt(std::sqrt(1.0f - (Time::now() - effect_start_time_).toSeconds() /
                                                                  effect_duration_.toSeconds())));
-    effect_model_.lock()->draw(shader, effect_);
+    model.lock()->draw(shader, effect_);
 }
 
 glm::vec3 Camera3D::getPosition() const
@@ -181,12 +181,20 @@ void Camera3D::bind() const
     const glm::mat4 view = glm::lookAt(eye, look_at, UP);
 
     // Bind
+    const auto view_projection = projection * view;
+    const auto view_projection_inverse = glm::inverse(view_projection);
+
     for (auto weak_shader : shaders_)
     {
         auto shader = weak_shader.lock();
         shader->bind();
         shader->setUniform("u_Projection", projection);
         shader->setUniform("u_View", view);
+
+        shader->setUniform("u_ProjectionInverse", glm::inverse(projection));
+        shader->setUniform("u_ViewInverse", glm::inverse(view));
+        shader->setUniform("u_ViewProjectionInverse", view_projection_inverse);
+
         shader->setUniform("u_CameraPosition", eye);
 
         shader->setUniform("u_WorldEast", EAST);

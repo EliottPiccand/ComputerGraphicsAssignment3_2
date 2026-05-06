@@ -22,7 +22,7 @@ target_compile_options(${EXECUTABLE_NAME} PRIVATE
   -Wno-switch-default
   -Wno-global-constructors
   -Wno-exit-time-destructors
-  #-Werror
+  -Werror
   -O3
 )
 

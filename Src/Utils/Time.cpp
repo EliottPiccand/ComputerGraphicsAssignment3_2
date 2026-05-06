@@ -5,6 +5,11 @@ Instant Time::now()
     return now_;
 }
 
+Duration Time::elapsed()
+{
+    return now_ - Instant();
+}
+
 void Time::initialize()
 {
     paused = false;

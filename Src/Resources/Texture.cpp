@@ -128,12 +128,11 @@ std::shared_ptr<Texture> Texture::load(const std::filesystem::path &partial_path
     return std::make_shared<Texture>(id, type);
 }
 
-void Texture::bind(GLenum slot, std::shared_ptr<resource::Shader> shader, const char *uniform_slot) const
+void Texture::bind(GLuint slot, std::shared_ptr<resource::Shader> shader, const char *uniform_slot) const
 {
-    if (shader->bindTexture(uniform_slot, static_cast<GLint>(slot - GL_TEXTURE0)))
+    if (shader->bindTexture(uniform_slot, static_cast<GLint>(slot)))
     {
-        glActiveTexture(slot);
-        glBindTexture(GL_TEXTURE_2D, id_);
+        glBindTextureUnit(slot, id_);
     }
 }
 
