@@ -36,8 +36,6 @@ uniform sampler2D u_EnvironmentMap;
 out vec4 out_Color;
 out vec4 out_Normal;
 
-const float PI = 3.14159265359;
-
 vec3 fresnelSchlick(float cosTheta, vec3 F0)
 {
     return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
@@ -71,17 +69,6 @@ float geometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
     float NdotV = max(dot(N, V), 0.0);
     float NdotL = max(dot(N, L), 0.0);
     return geometrySchlickGGX(NdotV, roughness) * geometrySchlickGGX(NdotL, roughness);
-}
-
-vec2 sampleEquirect(vec3 dir)
-{
-    vec3 n = normalize(dir);
-    float theta = atan(n.z, n.x);
-    float phi = asin(clamp(n.y, -1.0, 1.0));
-
-    float u = 0.5 + theta / (2.0 * PI);
-    float v = 0.5 - phi / PI;
-    return vec2(u, v);
 }
 
 vec3 computeNormal()

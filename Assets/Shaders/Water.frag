@@ -49,9 +49,6 @@ uniform sampler2D u_NormalMap;
 
 out vec4 out_Color;
 
-const float EPSILON = 1e-5;
-const float PI = 3.14159265359;
-
 float saturate(float x)
 {
     return clamp(x, 0.0, 1.0);
@@ -80,17 +77,6 @@ float CalculateSmithGGXGeometryTerm(float roughness, float nDotL, float nDotV)
     float g1V = nDotV / (nDotV * (1.0 - k) + k);
 
     return g1L * g1V;
-}
-
-vec2 sampleEquirect(vec3 dir)
-{
-    vec3 n = normalize(dir);
-    float theta = atan(n.z, n.x);
-    float phi = asin(clamp(n.y, -1.0, 1.0));
-
-    float u = 0.5 + theta / (2.0 * PI);
-    float v = 0.5 - phi / PI;
-    return vec2(u, v);
 }
 
 vec3 GetWorldPositionFromDepth(vec2 uv, float depth, mat4 invViewProjection)

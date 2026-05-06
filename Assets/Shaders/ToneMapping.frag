@@ -13,9 +13,10 @@ vec3 gammaCorrection(vec3 color)
     return pow(color, vec3(1.0 / 2.2));
 }
 
+// TODO: remove toneMapping from main pass and add it as a post processing effect 
 vec3 toneMapping(vec3 color)
 {
-    // color = ACESFilm(color);
-    // color = gammaCorrection(color);
+    color = ACESFilm(color);
+    color = gammaCorrection(color);
     return color;
 }
