@@ -49,7 +49,7 @@
 #include "Utils/Random.h"
 #include "Utils/Time.h"
 
-constexpr const bool DEBUG_SCENE = true;
+constexpr const bool DEBUG_SCENE = false;
 
 #pragma region model_settings
 

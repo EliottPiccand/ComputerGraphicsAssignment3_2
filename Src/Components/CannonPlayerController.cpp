@@ -45,6 +45,7 @@ void CannonPlayerController::updateTarget()
     }
 
     glm::vec3 target;
+    bool target_updated = false;
 
     glm::vec3 target_motion{};
     if (Input::isPressed(Input::Action::DebugMoveTargetNorth))
@@ -67,12 +68,14 @@ void CannonPlayerController::updateTarget()
     if (aiming_ && Singleton::view == View::Top)
     {
         target = Singleton::active_camera.lock()->screenToWorld(Input::getMousePosition());
+        target_updated = true;
     }
     else
     {
         if (glm::length(target_motion) > EPSILON)
         {
             target += glm::normalize(target_motion) * DEBUG_TARGET_SPEED * Time::getDeltaTime();
+            target_updated = true;
         }
     }
 
@@ -84,21 +87,22 @@ void CannonPlayerController::updateTarget()
     if (!target_in_bounds)
     {
         aiming_ = false;
+        return;
     }
 
-    if (target_in_bounds)
+    if (target_updated)
     {
         target -= glm::dot(target, UP) * UP;
-
-        cannon_ball_initial_velocity_ = getShootingInitialVelocity(target);
         target_ = target;
+        cannon_ball_initial_velocity_ = getShootingInitialVelocity(target_);
+    }
 
-        // Camera
-        const auto planar_velocity = cannon_ball_initial_velocity_ - UP * glm::dot(UP, cannon_ball_initial_velocity_);
-        if (glm::length(planar_velocity) > EPSILON)
-        {
-            camera_.lock()->lookToward(glm::normalize(planar_velocity));
-        }
+
+    // Camera
+    const auto planar_velocity = cannon_ball_initial_velocity_ - UP * glm::dot(UP, cannon_ball_initial_velocity_);
+    if (glm::length(planar_velocity) > EPSILON)
+    {
+        camera_.lock()->lookToward(glm::normalize(planar_velocity));
     }
 
     if (Input::getState(Singleton::view != View::Top ? Input::Action::DebugAimAndFire : Input::Action::AimAndFire) ==
@@ -109,4 +113,6 @@ void CannonPlayerController::updateTarget()
             fired_ = true;
         }
     }
+
+    LOG_TRACE("{:.1f} {:.1f} {:.1f} | {:.1f} {:.1f} {:.1f}", target_.x, target_.y, target_.z, cannon_ball_initial_velocity_.x, cannon_ball_initial_velocity_.y, cannon_ball_initial_velocity_.z);
 }
