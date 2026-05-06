@@ -15,7 +15,7 @@ class Text : public Component
   public:
     Text(float width, float height, std::weak_ptr<resource::Texture> texture);
 
-    void render(glm::mat4 &transform) const override;
+    void renderDefered(glm::mat4 &transform) const override;
 
   private:
     float width_;

@@ -37,10 +37,10 @@ void HealthBar::update()
     transform->setPosition(follow_target_position - UP * glm::dot(follow_target_position, UP) + UP * HEALTH_BAR_HEIGHT);
 }
 
-void HealthBar::render(glm::mat4 &transform) const
+void HealthBar::renderDefered(glm::mat4 &transform) const
 {
     ProfileScope;
-    ProfileScopeGPU("HealthBar::render");
+    ProfileScopeGPU("HealthBar::renderDefered");
 
     constexpr const float HEALTH_BAR_WIDTH = 15.0f;
     constexpr const float HEALTH_BAR_HEIGHT = 1.0f;

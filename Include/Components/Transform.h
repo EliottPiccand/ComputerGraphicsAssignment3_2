@@ -33,6 +33,7 @@ class Transform : public Component
     void pointToward(const glm::vec3 &direction);
 
     void render(glm::mat4 &transform) const override;
+    void renderDefered(glm::mat4 &transform) const override;
 
   private:
     glm::vec3 position_;

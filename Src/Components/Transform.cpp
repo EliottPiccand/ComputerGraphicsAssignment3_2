@@ -125,3 +125,8 @@ void Transform::render(glm::mat4 &transform) const
     const glm::mat4 local = glm::translate(position_) * glm::mat4_cast(rotation_) * glm::scale(scale_);
     transform = transform * local;
 }
+
+void Transform::renderDefered(glm::mat4 &transform) const
+{
+    render(transform);
+}

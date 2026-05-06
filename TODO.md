@@ -24,7 +24,7 @@
     - Controls
     - Compile info
 - ~~fix explosion particles~~
-- fix message transparency
+- ~~fix message transparency~~
 
 ## Additional Goals
 - ~~explosion effect~~
