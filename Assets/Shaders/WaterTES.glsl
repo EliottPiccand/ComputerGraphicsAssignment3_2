@@ -46,7 +46,7 @@ struct Wave
     float speed;
 };
 
-const uint numWaves = 2;
+const uint numWaves = 3;
 
 WaveResult CalculateWave(Wave wave, vec3 wavePosition, float edgeDampen)
 {
@@ -102,17 +102,23 @@ void main()
     output_.texCoord0 = uvwCoord.x * te_in[0].texCoord0 + uvwCoord.y * te_in[1].texCoord0 + uvwCoord.z * te_in[2].texCoord0;
  
     Wave waves[numWaves];
-    waves[0].direction = vec3(0.3, 0, -0.7);
-    waves[0].steepness = 1.79;
-    waves[0].waveLength = 3.75;
-    waves[0].amplitude = 0.85;
-    waves[0].speed = 1.21;
+    waves[0].direction  = vec3(0.3, -0.7, 0.0);
+    waves[0].steepness  = 1.79;
+    waves[0].waveLength = 2.75;
+    waves[0].amplitude  = 0.45;
+    waves[0].speed      = 1.21;
 
-    waves[1].direction = vec3(0.5, 0, -0.2);
-    waves[1].steepness = 1.79;
+    waves[1].direction  = vec3(0.5, -0.2, 0.0);
+    waves[1].steepness  = 1.79;
     waves[1].waveLength = 4.1;
-    waves[1].amplitude = 0.52;
-    waves[1].speed = 1.03;
+    waves[1].amplitude  = 0.26;
+    waves[1].speed      = 0.23;
+
+    waves[2].direction  = vec3(-0.2, 0.6, 0.0);
+    waves[2].steepness  = 0.79;
+    waves[2].waveLength = 5.23;
+    waves[2].amplitude  = 0.07;
+    waves[2].speed      = 1.37;
 
     float dampening = 1.0 - pow(saturate(abs(output_.texCoord0.z - 0.5) / 0.5), u_DampeningFactor);
     dampening *= 1.0 - pow(saturate(abs(output_.texCoord0.w - 0.5) / 0.5), u_DampeningFactor);
