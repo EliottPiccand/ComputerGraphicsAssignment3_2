@@ -2,14 +2,12 @@
 
 #include <cstddef>
 #include <optional>
-#include <vector>
 
-#include "ParticleSystem.h"
-#include "Utils/Color.h"
+#include "Events/EventQueue.h"
+#include "Events/SpawnParticles.h"
 #include "Utils/Constants.h"
 #include "Utils/Math.h"
 #include "Utils/Profiling.h"
-#include "Utils/Random.h"
 #include "Utils/Time.h"
 
 constexpr const Duration FOAM_PARTICLE_SPAWN_INTERVAL = Duration::milliseconds(0.2f);
@@ -36,9 +34,6 @@ void ShipController::update()
 
     constexpr const glm::vec3 SHIP_FRONT = MODEL_FORWARD * 10.0f;
     constexpr const glm::vec3 SHIP_BACK = MODEL_BACKWARD * 11.0f;
-
-    constexpr const Color FOAM_PARTICLE_COLOR = color::WHITE;
-    constexpr const float FOAM_PARTICLE_SPREAD = 2.0f; // m
 
     updateStates();
 
@@ -87,27 +82,16 @@ void ShipController::update()
 
     if (particle_offset.has_value())
     {
-        const auto rotated_offset = transform->getRotation() * particle_offset.value();
-        const auto offset = rotated_offset + rigid_body->getPosition();
-
         const auto particle_count = static_cast<size_t>((Time::now() - last_particle_spawn_).toSeconds() /
                                                         FOAM_PARTICLE_SPAWN_INTERVAL.toSeconds());
         if (particle_count == 0)
             return;
         last_particle_spawn_ = Time::now();
 
-        std::vector<Particle> particles(particle_count);
-        for (auto &particle : particles)
-        {
-            particle.color = FOAM_PARTICLE_COLOR;
-            particle.position = offset + Random::direction() * Random::random(0.0f, FOAM_PARTICLE_SPREAD);
-            particle.velocity = ZERO;
-            particle.is_subject_to_gravity = true;
-            particle.life = Random::random(0.05f, 0.5f);
-            particle.scale = {0.3f, 0.3f};
-        }
+        const auto rotated_offset = transform->getRotation() * particle_offset.value();
+        const auto offset = rotated_offset + rigid_body->getPosition();
 
-        ParticleSystem::addParticles(particles);
+        EventQueue::post<event::SpawnParticles>(event::SpawnParticles::Type::FoamTrail, offset, particle_count);
     }
 }
 

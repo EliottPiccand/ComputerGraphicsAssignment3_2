@@ -23,7 +23,7 @@
 - update README
     - Controls
     - Compile info
-- fix explosion particles
+- ~~fix explosion particles~~
 - fix message transparency
 
 ## Additional Goals
@@ -57,4 +57,4 @@
 - ~~update every part using Instant or Duration to something not linked to the system clock, to properly be able to pause the game.~~
 - readd debug view
 - debug GameObject names
-- make particle spawning events and add them to debug scene
+- ~~make particle spawning events~~ and add them to debug scene
