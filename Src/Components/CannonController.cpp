@@ -123,7 +123,6 @@ void CannonController::update()
 
         EventQueue::post<event::Fire>(cannon_ball_position, cannon_ball_initial_velocity_, shooter_id_);
 
-        constexpr const size_t SMOKE_PARTICLE_COUNT = 200;
         EventQueue::post<event::SpawnParticles>(
             event::SpawnParticles::Type::Smoke,
             cannon_ball_position + glm::normalize(cannon_ball_initial_velocity_) * 2.0f, SMOKE_PARTICLE_COUNT);

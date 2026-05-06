@@ -10,8 +10,6 @@
 #include "Utils/Profiling.h"
 #include "Utils/Time.h"
 
-constexpr const Duration FOAM_PARTICLE_SPAWN_INTERVAL = Duration::milliseconds(0.2f);
-
 using namespace component;
 
 ShipController::ShipController()

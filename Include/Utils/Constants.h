@@ -1,5 +1,8 @@
 #pragma once
 
+#include "Utils/Time.h"
+#include <cstddef>
+
 #include <Lib/glm.h>
 
 constexpr const glm::vec3 X = {1.0f, 0.0f, 0.0f};
@@ -30,3 +33,7 @@ inline const float MAX_SHOOTING_DISTANCE = glm::sqrt(2.0f) * WORLD_WIDTH; // m
 inline const float INITIAL_CANNON_BALL_VELOCITY = glm::sqrt(
     GRAVITY * (MAX_SHOOTING_INITIAL_HEIGHT + glm::sqrt(MAX_SHOOTING_INITIAL_HEIGHT * MAX_SHOOTING_INITIAL_HEIGHT +
                                                        MAX_SHOOTING_DISTANCE * MAX_SHOOTING_DISTANCE))); // m/s
+
+// Particles
+constexpr const size_t SMOKE_PARTICLE_COUNT = 200;
+constexpr const Duration FOAM_PARTICLE_SPAWN_INTERVAL = Duration::milliseconds(0.2f);

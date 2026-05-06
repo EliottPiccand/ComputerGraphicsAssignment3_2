@@ -46,6 +46,16 @@ class Duration
         return seconds_ <= other.seconds_;
     }
 
+    constexpr Duration operator*(float scale) const
+    {
+        return Duration(seconds_ * scale);
+    }
+
+    constexpr Duration operator+(const Duration &other) const
+    {
+        return Duration(seconds_ + other.seconds_);
+    }
+
   private:
     friend Time;
     friend Instant;

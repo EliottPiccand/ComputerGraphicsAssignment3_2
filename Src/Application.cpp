@@ -21,6 +21,7 @@
 #include "Components/ShipPlayerController.h"
 #include "Components/Sky.h"
 #include "Components/Text.h"
+#include "Components/Transform.h"
 #include "Components/Water.h"
 #include "Events/DamageTaken.h"
 #include "Events/DetachGameObject.h"
@@ -48,7 +49,7 @@
 #include "Utils/Random.h"
 #include "Utils/Time.h"
 
-constexpr const bool DEBUG_SCENE = false;
+constexpr const bool DEBUG_SCENE = true;
 
 #pragma region model_settings
 
@@ -212,25 +213,34 @@ static_assert(ENEMY_COUNT < SPAWN_LOCATIONS.size(), "not enough spawn location f
 
 #pragma region particles_settings
 
+constexpr const size_t PLOOF_PARTICLE_COUNT = 500;
+constexpr const Duration PLOOF_PARTICLE_MAX_LIFETIME = Duration::seconds(3.0f);
+
+constexpr const size_t EXPLOSION_PARTICLE_COUNT = 2500;
+constexpr const Duration EXPLOSION_PARTICLE_MAX_LIFETIME = Duration::seconds(MAX_EXPLOSION_RAIDUS / EXPLOSION_RADIUS_EXPANTION_RATE);
+
+constexpr const Duration SMOKE_PARTICLE_MAX_LIFETIME = Duration::milliseconds(1500.0f);
+
 constexpr const Duration CANNON_BALL_SPARK_PARTICLE_SPAWN_INTERVAL = Duration::milliseconds(20.0f);
 const auto CANNON_BALL_SPARK_ANIMATION_FACTORY = [] {
-    const component::Animation::Callback animation_callback = [last_spawn = Time::now() -
-                                                                            CANNON_BALL_SPARK_PARTICLE_SPAWN_INTERVAL](
-                                                                  std::shared_ptr<component::Transform> transform,
-                                                                  std::shared_ptr<GameObject> game_object) mutable {
-        const auto rigid_body = game_object->getComponent<component::RigidBody>().value();
-        const auto backward = -getForwardVector(transform->getRotation());
-        const auto position = glm::vec3(transform->resolve()[3]) + backward * 0.3f + Random::direction() * 0.05f;
+    const component::Animation::Callback animation_callback =
+        [last_spawn = Time::now() - CANNON_BALL_SPARK_PARTICLE_SPAWN_INTERVAL](
+            std::shared_ptr<component::Transform> transform, std::shared_ptr<GameObject> game_object) mutable {
+            const auto rigid_body = game_object->getComponent<component::RigidBody>().value();
+            const auto backward = -getForwardVector(transform->getRotation());
+            const auto position = glm::vec3(transform->resolve()[3]) + backward * 0.3f + Random::direction() * 0.05f;
 
-        const auto particle_count = static_cast<size_t>((Time::now() - last_spawn).toSeconds() /
-                                                        CANNON_BALL_SPARK_PARTICLE_SPAWN_INTERVAL.toSeconds());
-        if (particle_count == 0)
-            return;
-        last_spawn = Time::now();
+            const auto particle_count = static_cast<size_t>((Time::now() - last_spawn).toSeconds() /
+                                                            CANNON_BALL_SPARK_PARTICLE_SPAWN_INTERVAL.toSeconds());
+            if (particle_count == 0)
+                return;
+            last_spawn = Time::now();
 
-        const void *additional_data = event::SpawnParticles::createAdditionalData(backward, rigid_body->getVelocity());
-        EventQueue::post<event::SpawnParticles>(event::SpawnParticles::Type::CannonBallSpark, position, particle_count, additional_data);
-    };
+            const void *additional_data =
+                event::SpawnParticles::createAdditionalData(backward, rigid_body->getVelocity());
+            EventQueue::post<event::SpawnParticles>(event::SpawnParticles::Type::CannonBallSpark, position,
+                                                    particle_count, additional_data);
+        };
     return animation_callback;
 };
 
@@ -488,6 +498,10 @@ Application::Application() : should_close_(false), free_view_override_(false)
 
         if constexpr (DEBUG_SCENE)
         {
+            /**************/
+            /*   Models   */
+            /**************/
+
             // Ship
             auto ship = scene_root_->addChild();
             ship->addComponent<component::Transform>();
@@ -498,7 +512,7 @@ Application::Application() : should_close_(false), free_view_override_(false)
 
             // Cannon Stand
             auto cannon_stand = scene_root_->addChild();
-            cannon_stand->addComponent<component::Transform>(EAST * 10.0f);
+            cannon_stand->addComponent<component::Transform>(EAST * 10.0f + UP);
 
             auto cannon_stand_model = cannon_stand->addChild();
             cannon_stand_model->addComponent<component::Transform>(CANNON_STAND_MODEL_TRANSLATION, CANNON_STAND_MODEL_ROTATION, CANNON_STAND_MODEL_SCALE);
@@ -506,15 +520,30 @@ Application::Application() : should_close_(false), free_view_override_(false)
 
             // Cannon Barrel
             auto cannon_barrel = scene_root_->addChild();
-            cannon_barrel->addComponent<component::Transform>(EAST * 15.0f);
+            cannon_barrel->addComponent<component::Transform>(EAST * 15.0f + UP);
 
             auto cannon_barrel_model = cannon_barrel->addChild();
             cannon_barrel_model->addComponent<component::Transform>(CANNON_BARREL_MODEL_TRANSLATION, CANNON_BARREL_MODEL_ROTATION, CANNON_BARREL_MODEL_SCALE);
             cannon_barrel_model->addComponent<component::ModelInstance>(ResourceLoader::get<resource::Model>("Cannon/Barrel"));
 
+            // Radar
+            auto radar = ship->addChild();
+            radar->addComponent<component::Transform>(EAST * 17.5f + UP);
+            radar->addComponent<component::Animation>(RADAR_ANIMATION);
+                                                                                                                
+            // - Cylinder
+            auto radar_cylinder = radar->addChild();
+            radar_cylinder->addComponent<component::Transform>(RADAR_CYLINDER_MODEL_TRANSLATION);
+            radar_cylinder->addComponent<component::ModelInstance>(ResourceLoader::get<resource::Model>("Radar/Cylinder"));
+                                                                                                                
+            // - Cone
+            auto radar_cone = radar->addChild();
+            radar_cone->addComponent<component::Transform>(RADAR_CONE_MODEL_POSITION, RADAR_CONE_MODEL_ROTATION);
+            radar_cone->addComponent<component::ModelInstance>(ResourceLoader::get<resource::Model>("Radar/Cone"));
+
             // Cannon Ball
             auto cannon_ball = scene_root_->addChild();
-            cannon_ball->addComponent<component::Transform>(EAST * 20.0f);
+            cannon_ball->addComponent<component::Transform>(EAST * 20.0f + UP);
 
             auto cannon_ball_model = cannon_ball->addChild();
             cannon_ball_model->addComponent<component::Transform>(CANNON_BALL_MODEL_TRANSLATION, CANNON_BALL_MODEL_ROTATION, CANNON_BALL_MODEL_SCALE);
@@ -522,7 +551,7 @@ Application::Application() : should_close_(false), free_view_override_(false)
 
             // Rock 1
             auto rock_1 = scene_root_->addChild();
-            rock_1->addComponent<component::Transform>(EAST * 30.0f);
+            rock_1->addComponent<component::Transform>(EAST * 30.0f + UP);
 
             auto rock_1_model = rock_1->addChild();
             rock_1_model->addComponent<component::Transform>(ROCK_MODEL_TRANSLATION, ROCK_MODEL_ROTATION, ROCK_MODEL_SCALE);
@@ -530,7 +559,7 @@ Application::Application() : should_close_(false), free_view_override_(false)
 
             // Rock 2
             auto rock_2 = scene_root_->addChild();
-            rock_2->addComponent<component::Transform>(EAST * 40.0f);
+            rock_2->addComponent<component::Transform>(EAST * 40.0f + UP);
 
             auto rock_2_model = rock_2->addChild();
             rock_2_model->addComponent<component::Transform>(ROCK_MODEL_TRANSLATION, ROCK_MODEL_ROTATION, ROCK_MODEL_SCALE);
@@ -538,11 +567,117 @@ Application::Application() : should_close_(false), free_view_override_(false)
 
             // Rock 3
             auto rock_3 = scene_root_->addChild();
-            rock_3->addComponent<component::Transform>(EAST * 55.0f);
+            rock_3->addComponent<component::Transform>(EAST * 55.0f + UP);
 
             auto rock_3_model = rock_3->addChild();
             rock_3_model->addComponent<component::Transform>(ROCK_MODEL_TRANSLATION, ROCK_MODEL_ROTATION, ROCK_MODEL_SCALE);
             rock_3_model->addComponent<component::ModelInstance>(ResourceLoader::get<resource::Model>("Rocks/3"));
+        
+            /**************/
+            /*  Particles */
+            /**************/
+
+            // Water Splash
+            auto water_splash = scene_root_->addChild();
+            water_splash->addComponent<component::Transform>(EAST * 10.0f + NORTH * 10.0f);
+            constexpr const auto WATER_SPLASH_INTERVAL = PLOOF_PARTICLE_MAX_LIFETIME + Duration::milliseconds(300.0f);
+            water_splash->addComponent<component::Animation>([WATER_SPLASH_INTERVAL, last_spawn = Time::now() - WATER_SPLASH_INTERVAL](
+                std::shared_ptr<component::Transform> transform,
+                std::shared_ptr<GameObject> game_object
+            ) mutable {
+                (void)game_object;
+            
+                if (Time::now() < last_spawn + WATER_SPLASH_INTERVAL)
+                    return;
+                last_spawn = Time::now();
+
+                EventQueue::post<event::SpawnParticles>(
+                    event::SpawnParticles::Type::WaterSplash,
+                    glm::vec3(transform->resolve()[3]),
+                    PLOOF_PARTICLE_COUNT);
+            });
+
+            // Explosion
+            auto explosion = scene_root_->addChild();
+            explosion->addComponent<component::Transform>(EAST * 20.0f + NORTH * 10.0f + UP * (MAX_EXPLOSION_RAIDUS + 1.0f));
+            constexpr const auto EXPLOSION_INTERVAL = EXPLOSION_PARTICLE_MAX_LIFETIME + Duration::milliseconds(300.0f);
+            explosion->addComponent<component::Animation>([EXPLOSION_INTERVAL, last_spawn = Time::now() - EXPLOSION_INTERVAL](
+                std::shared_ptr<component::Transform> transform,
+                std::shared_ptr<GameObject> game_object
+            ) mutable {
+                (void)game_object;
+            
+                if (Time::now() < last_spawn + EXPLOSION_INTERVAL)
+                    return;
+                last_spawn = Time::now();
+
+                EventQueue::post<event::SpawnParticles>(
+                    event::SpawnParticles::Type::Explosion,
+                    glm::vec3(transform->resolve()[3]),
+                    EXPLOSION_PARTICLE_COUNT);
+            });
+
+            // Smoke
+            auto smoke = scene_root_->addChild();
+            smoke->addComponent<component::Transform>(EAST * 30.0f + NORTH * 10.0f + UP);
+            constexpr const auto SMOKE_INTERVAL = SMOKE_PARTICLE_MAX_LIFETIME + Duration::milliseconds(300.0f);
+            smoke->addComponent<component::Animation>([SMOKE_INTERVAL, last_spawn = Time::now() - SMOKE_INTERVAL](
+                std::shared_ptr<component::Transform> transform,
+                std::shared_ptr<GameObject> game_object
+            ) mutable {
+                (void)game_object;
+            
+                if (Time::now() < last_spawn + SMOKE_INTERVAL)
+                    return;
+                last_spawn = Time::now();
+
+                EventQueue::post<event::SpawnParticles>(
+                    event::SpawnParticles::Type::Smoke,
+                    glm::vec3(transform->resolve()[3]),
+                    SMOKE_PARTICLE_COUNT);
+            });
+
+            // Cannon Ball Spark
+            auto cannon_ball_spark = scene_root_->addChild();
+            cannon_ball_spark->addComponent<component::Transform>(EAST * 40.0f + NORTH * 10.0f + UP);
+            cannon_ball_spark->addComponent<component::Animation>([last_spawn = Time::now() - CANNON_BALL_SPARK_PARTICLE_SPAWN_INTERVAL](
+                std::shared_ptr<component::Transform> transform,
+                std::shared_ptr<GameObject> game_object
+            ) mutable {
+                (void)game_object;
+            
+                const auto particle_count = static_cast<size_t>((Time::now() - last_spawn).toSeconds() / CANNON_BALL_SPARK_PARTICLE_SPAWN_INTERVAL.toSeconds());
+                if (particle_count == 0)
+                    return;
+                last_spawn = Time::now();
+
+                const void* additional_data = event::SpawnParticles::createAdditionalData(UP, ZERO);
+                EventQueue::post<event::SpawnParticles>(
+                    event::SpawnParticles::Type::CannonBallSpark,
+                    glm::vec3(transform->resolve()[3]),
+                    particle_count,
+                    additional_data);
+            });
+
+            // Foam Trail
+            auto foam_trail = scene_root_->addChild();
+            foam_trail->addComponent<component::Transform>(EAST * 50.0f + NORTH * 10.0f + UP);
+            foam_trail->addComponent<component::Animation>([last_spawn = Time::now() - FOAM_PARTICLE_SPAWN_INTERVAL](
+                std::shared_ptr<component::Transform> transform,
+                std::shared_ptr<GameObject> game_object
+            ) mutable {
+                (void)game_object;
+            
+                const auto particle_count = static_cast<size_t>((Time::now() - last_spawn).toSeconds() / FOAM_PARTICLE_SPAWN_INTERVAL.toSeconds());
+                if (particle_count == 0)
+                    return;
+                last_spawn = Time::now();
+
+                EventQueue::post<event::SpawnParticles>(
+                    event::SpawnParticles::Type::FoamTrail,
+                    glm::vec3(transform->resolve()[3]),
+                    particle_count);
+            });
         }
         else
         {
@@ -789,7 +924,6 @@ Application::Application() : should_close_(false), free_view_override_(false)
 
                 if (id == water_id)
                 {
-                    constexpr const size_t PLOOF_PARTICLE_COUNT = 500;
                     EventQueue::post<event::SpawnParticles>(event::SpawnParticles::Type::WaterSplash, cannon_ball_position, PLOOF_PARTICLE_COUNT);
                 }
                 else
@@ -809,7 +943,6 @@ Application::Application() : should_close_(false), free_view_override_(false)
                     explosion->initialize();
                     to_detach_on_restart_[explosion->getId()] = explosion;
 
-                    constexpr const size_t EXPLOSION_PARTICLE_COUNT = 2500;
                     EventQueue::post<event::SpawnParticles>(event::SpawnParticles::Type::Explosion, cannon_ball_position, EXPLOSION_PARTICLE_COUNT);
                 }
 
@@ -942,10 +1075,9 @@ Application::Application() : should_close_(false), free_view_override_(false)
         switch (event.type)
         {
         case event::SpawnParticles::Type::Explosion: {
-            constexpr const Color    EXPLOSION_PARTICLE_INNER_COLOR  = rgba(220, 192, 70, 0.9);
-            constexpr const Color    EXPLOSION_PARTICLE_OUTTER_COLOR = rgba(252, 55, 29, 0.86);
-            constexpr const Duration EXPLOSION_PARTICLE_MAX_LIFETIME = Duration::seconds(MAX_EXPLOSION_RAIDUS / EXPLOSION_RADIUS_EXPANTION_RATE);
-            constexpr const float    EXPLOSION_PARTICLE_MAX_VELOCITY = 10.0f; // m/s
+            constexpr const Color EXPLOSION_PARTICLE_INNER_COLOR  = rgba(220, 192, 70, 0.9);
+            constexpr const Color EXPLOSION_PARTICLE_OUTTER_COLOR = rgba(252, 55, 29, 0.86);
+            constexpr const float EXPLOSION_PARTICLE_MAX_VELOCITY = 10.0f; // m/s
 
             for (auto &particle : particles)
             {
@@ -963,7 +1095,6 @@ Application::Application() : should_close_(false), free_view_override_(false)
         case event::SpawnParticles::Type::Smoke: {
             constexpr const float    SMOKE_PARTICLE_SPREAD       = glm::radians(5.0f);
             constexpr const Duration SMOKE_PARTICLE_MIN_LIFETIME = Duration::milliseconds(400.0f);
-            constexpr const Duration SMOKE_PARTICLE_MAX_LIFETIME = Duration::milliseconds(1500.0f);
 
             for (auto &particle : particles)
             {
@@ -995,7 +1126,6 @@ Application::Application() : should_close_(false), free_view_override_(false)
             constexpr const float    PLOOF_PARTICLE_SPAWN_RADIUS = 2.0f; // m
             constexpr const Color    PLOOF_PARTICLE_INNER_COLOR  = rgba(140, 188, 236, 0.81);
             constexpr const Color    PLOOF_PARTICLE_OUTTER_COLOR = rgba(0, 102, 204, 0.6);
-            constexpr const Duration PLOOF_PARTICLE_MAX_LIFETIME = Duration::seconds(3.0f);
             constexpr const float    PLOOF_PARTICLE_VERTICALITY  = 10.0f;
             constexpr const float    PLOOF_PARTICLE_SPREAD       = glm::radians(3.0f);
             constexpr const float    PLOOF_PARTICLE_VELOCITY     = 10.0f; // m/s
@@ -1025,6 +1155,7 @@ Application::Application() : should_close_(false), free_view_override_(false)
             constexpr const Color    CANNON_BALL_SPARK_PARTICLE_COLOR_1      = rgba(252, 233, 62, 1);
             constexpr const Color    CANNON_BALL_SPARK_PARTICLE_COLOR_2      = rgba(255, 29, 29, 1);
 
+            assert(event.additional_data != nullptr && "event::SpawnParticles::Type::CannonBallSpark must have additional data");
             const auto [backward, rigid_body_velocity] = event::SpawnParticles::getAdditionalData<glm::vec3, glm::vec3>(event.additional_data);
 
             for (auto &particle : particles)
