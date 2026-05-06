@@ -36,41 +36,6 @@ uniform sampler2D u_EnvironmentMap;
 out vec4 out_Color;
 out vec4 out_Normal;
 
-vec3 fresnelSchlick(float cosTheta, vec3 F0)
-{
-    return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
-}
-
-vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
-{
-    return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
-}
-
-float distributionGGX(vec3 N, vec3 H, float roughness)
-{
-    float a  = roughness * roughness;
-    float a2 = a * a;
-    float NdotH = max(dot(N, H), 0.0);
-    float NdotH2 = NdotH * NdotH;
-
-    float denom = NdotH2 * (a2 - 1.0) + 1.0;
-    return a2 / (PI * denom * denom + 0.0001);
-}
-
-float geometrySchlickGGX(float NdotV, float roughness)
-{
-    float r = roughness + 1.0;
-    float k = (r * r) / 8.0;
-    return NdotV / (NdotV * (1.0 - k) + k);
-}
-
-float geometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
-{
-    float NdotV = max(dot(N, V), 0.0);
-    float NdotL = max(dot(N, L), 0.0);
-    return geometrySchlickGGX(NdotV, roughness) * geometrySchlickGGX(NdotL, roughness);
-}
-
 vec3 computeNormal()
 {
     vec3 N = normalize(in_Normal);
@@ -132,14 +97,14 @@ void main()
         vec3 L = normalize(-light.direction);
         vec3 H = normalize(V + L);
 
-        float NdotL = max(dot(N, L), 0.0);
+        float NdotL = saturate(dot(N, L));
 
-        float D = distributionGGX(N, H, roughness);
-        float G = geometrySmith(N, V, L, roughness);
-        vec3  F = fresnelSchlick(max(dot(H, V), 0.0), F0);
+        float D = CalculateNormalDistributionGGX(roughness, saturate(dot(N, H)));
+        float G = CalculateSmithGGXGeometryTerm(roughness, saturate(dot(N, L)), saturate(dot(N, V)));
+        vec3  F = CalculateSchlickFresnelReflectance(saturate(dot(H, V)), F0);
     
         vec3  numerator = D * G * F;
-        float denominator = 4.0 * max(dot(N, V), 0.0) * NdotL + 0.0001;
+        float denominator = 4.0 * saturate(dot(N, V)) * NdotL + 0.0001;
         vec3  specular = numerator / denominator;
 
         vec3 kS = F;
@@ -157,7 +122,7 @@ void main()
     float lod = roughness * 10.0;
     vec3 envColor = textureLod(u_EnvironmentMap, sampleEquirect(equiR), lod).rgb;
 
-    vec3 F_amb = fresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
+    vec3 F_amb = CalculateSchlickFresnelRoughness(saturate(dot(N, V)), F0, roughness);
     vec3 kD_amb = (1.0 - F_amb) * (1.0 - metallic);
 
     vec3 ambient_diffuse = kD_amb * albedo * u_AmbientColor;

@@ -49,39 +49,8 @@ uniform sampler2D u_NormalMap;
 
 out vec4 out_Color;
 
-float saturate(float x)
-{
-    return clamp(x, 0.0, 1.0);
-}
-
-float CalculateNormalDistributionGGX(float roughness, float nDotH)
-{
-    float a = roughness * roughness;
-    float a2 = a * a;
-
-    float denom = (nDotH * nDotH) * (a2 - 1.0) + 1.0;
-    return a2 / (PI * denom * denom);
-}
-
-vec3 CalculateSchlickFresnelReflectance(float lDotH, vec3 f0)
-{
-    return f0 + (1.0 - f0) * pow(1.0 - lDotH, 5.0);
-}
-
-float CalculateSmithGGXGeometryTerm(float roughness, float nDotL, float nDotV)
-{
-    float r = roughness + 1.0;
-    float k = (r * r) / 8.0;
-
-    float g1L = nDotL / (nDotL * (1.0 - k) + k);
-    float g1V = nDotV / (nDotV * (1.0 - k) + k);
-
-    return g1L * g1V;
-}
-
 vec3 GetWorldPositionFromDepth(vec2 uv, float depth, mat4 invViewProjection)
 {
-    // Convert from [0,1] depth to NDC [-1,1]
     float z = depth * 2.0 - 1.0;
 
     vec4 clipSpacePosition = vec4(uv * 2.0 - 1.0, z, 1.0);

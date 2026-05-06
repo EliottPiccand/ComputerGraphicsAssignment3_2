@@ -16,13 +16,15 @@
     - ~~victory state~~
 - ~~collisions~~
 - ~~switch to shaders and remove any trace of OpenGL legacy pipeline~~
-- ~~add rendering style: Wireframe rendering with hidden line removal~~ (no hidden line removal for anything that disable depth test such as particles)
+- ~~add rendering style: Wireframe rendering with hidden line removal~~ (no hidden line removal for anything that disable depth test such as particles and skybox)
 - ~~find something to make cannon balls visible from top view~~
 - ~~fix non textured model rendering~~
 - update Report images
 - update README
     - Controls
     - Compile info
+- fix explosion particles
+- fix message transparency
 
 ## Additional Goals
 - ~~explosion effect~~
@@ -39,7 +41,7 @@
 - ~~instanciated rendering for particle system~~
 - ~~smoke when cannon fire~~
 - ~~pbr~~
-- waves + water interaction (https://alextardif.com/Water.html)
+- ~~waves (https://alextardif.com/Water.html)~~
 - fireworks on win
 - sink animation
 - rotating ship wheel
@@ -47,6 +49,7 @@
 - sun
 - birds
 - shadows
+- water interaction
 
 ## If time
 - ~~move textures in the assets/texture folder and fix models accordingly~~

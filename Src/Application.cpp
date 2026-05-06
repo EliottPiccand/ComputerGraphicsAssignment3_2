@@ -310,9 +310,10 @@ Application::Application() : should_close_(false), free_view_override_(false)
     LOG_INFO("compiling shaders");
     
     const std::vector<std::filesystem::path> shared_shader_code = {
-        "Constants.frag",
-        "ToneMapping.frag",
+        "Maths.frag",
         "SampleEquirect.frag",
+        "PBRHelpers.frag",
+        "ToneMapping.frag",
     };
 
     ResourceLoader::load<resource::Shader>("Sky",          "Sky.vert",          "Sky.frag",          resource::Shader::Defines{}, shared_shader_code);
