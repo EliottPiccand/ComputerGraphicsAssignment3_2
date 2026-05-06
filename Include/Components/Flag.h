@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 
 #include <Lib/glm.h>
 
@@ -16,7 +17,7 @@ class Flag : public Component
   public:
     static constexpr const float WIDTH = 3.0f;
 
-    Flag(std::weak_ptr<resource::Texture> texture);
+    Flag(std::weak_ptr<resource::Texture> texture, std::optional<std::weak_ptr<resource::Texture>> emissive_texture);
 
     void update() override;
     void render(glm::mat4 &transform) const override;

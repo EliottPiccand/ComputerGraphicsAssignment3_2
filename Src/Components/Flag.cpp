@@ -2,18 +2,25 @@
 
 #include "Resources/ResourceLoader.h"
 #include "Resources/Shader.h"
+#include "Utils/Color.h"
+#include "Utils/Log.h"
 #include "Utils/Profiling.h"
 #include "Utils/Time.h"
 
 using namespace component;
 
-Flag::Flag(std::weak_ptr<resource::Texture> texture) : animation_time_(0.0f)
+Flag::Flag(std::weak_ptr<resource::Texture> texture, std::optional<std::weak_ptr<resource::Texture>> emissive_texture)
+    : animation_time_(0.0f)
 {
+    LOG_WARNING("flag: {}", emissive_texture.has_value());
+
     materials_override_ = {
         {
             0,
             {
                 .albedo_texture = texture,
+                .emissive_color = emissive_texture.has_value() ? color::WHITE : color::TRANSPARENT,
+                .emissive_texture = emissive_texture,
             },
         },
     };

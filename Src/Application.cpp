@@ -49,7 +49,7 @@
 #include "Utils/Random.h"
 #include "Utils/Time.h"
 
-constexpr const bool DEBUG_SCENE = false;
+constexpr const bool DEBUG_SCENE = true;
 
 #pragma region model_settings
 
@@ -681,7 +681,7 @@ Application::Application() : should_close_(false), free_view_override_(false)
         }
         else
         {
-            const auto addShip = [&](resource::Model::MaterialsOverride materials_override, std::string_view flag_texture_name) {
+            const auto addShip = [&](resource::Model::MaterialsOverride materials_override, std::string_view flag_texture_name, std::optional<std::string_view> flag_emissive_texture_name) {
                 auto ship = scene_root_->addChild();
                 auto ship_transform = ship->addComponent<component::Transform>();
                 auto ship_collider = ship->addComponent<component::Collider>(SHIP_MODEL_COLLIDER);
@@ -712,7 +712,7 @@ Application::Application() : should_close_(false), free_view_override_(false)
                 /* flag */
                 auto flag = ship->addChild();
                 flag->addComponent<component::Transform>(SHIP_FLAG_TRANSLATION, SHIP_FLAG_ROTATION);
-                flag->addComponent<component::Flag>(ResourceLoader::get<resource::Texture>(flag_texture_name));
+                flag->addComponent<component::Flag>(ResourceLoader::get<resource::Texture>(flag_texture_name), flag_emissive_texture_name.transform([](auto n){ return ResourceLoader::get<resource::Texture>(n);}));
                                                                                                                     
                 /* cannon */
                 auto cannon = ship->addChild();
@@ -798,7 +798,7 @@ Application::Application() : should_close_(false), free_view_override_(false)
             }
         
             // - Player
-            auto [player_ship, player_health_bar, player_cannon, player_cannon_barrel_transform] = addShip(PLAYER_SHIP_MATERIALS_OVERRIDE, "Ship/PlayerVariant");
+            auto [player_ship, player_health_bar, player_cannon, player_cannon_barrel_transform] = addShip(PLAYER_SHIP_MATERIALS_OVERRIDE, "Ship/PlayerVariant", std::nullopt);
             ships_and_health_bars_.push_back({player_ship, player_health_bar});
             player_id_ = player_ship->getId();
 
@@ -818,7 +818,7 @@ Application::Application() : should_close_(false), free_view_override_(false)
             // - Enemies
             for (size_t i = 0; i < ENEMY_COUNT; ++i)
             {
-                auto [enemy_ship, enemy_health_bar, enemy_cannon, enemy_cannon_barrel_transform] = addShip(ENEMY_SHIP_MATERIALS_OVERRIDE, ENEMY_SHIP_FLAG);
+                auto [enemy_ship, enemy_health_bar, enemy_cannon, enemy_cannon_barrel_transform] = addShip(ENEMY_SHIP_MATERIALS_OVERRIDE, ENEMY_SHIP_FLAG, "Ship/SailsRopeEmissive.png");
                 ships_and_health_bars_.push_back({enemy_ship, enemy_health_bar});
 
                 auto enemy_ship_target = scene_root_->addChild();

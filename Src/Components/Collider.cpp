@@ -9,6 +9,7 @@
 #include <Lib/OpenGL.h>
 
 #include "Physics.h"
+#include "Singleton.h"
 #include "Utils/Math.h"
 #include "Utils/Profiling.h"
 
@@ -434,7 +435,7 @@ bool Collider::callCollisionCallbacks(GameObjectId game_object_id) const
     bool should_be_detached = false;
     for (const auto &callback : collision_callbacks_)
     {
-        if (callback(game_object_id))
+        if (Singleton::scene_root.lock()->getGameObject(game_object_id).has_value() && callback(game_object_id))
             should_be_detached = true;
     }
 

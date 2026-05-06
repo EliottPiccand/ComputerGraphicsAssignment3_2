@@ -74,7 +74,7 @@ void CannonPlayerController::updateTarget()
     {
         if (glm::length(target_motion) > EPSILON)
         {
-            target += glm::normalize(target_motion) * DEBUG_TARGET_SPEED * Time::getDeltaTime();
+            target = target_ + glm::normalize(target_motion) * DEBUG_TARGET_SPEED * Time::getDeltaTime();
             target_updated = true;
         }
     }
@@ -113,6 +113,4 @@ void CannonPlayerController::updateTarget()
             fired_ = true;
         }
     }
-
-    LOG_TRACE("{:.1f} {:.1f} {:.1f} | {:.1f} {:.1f} {:.1f}", target_.x, target_.y, target_.z, cannon_ball_initial_velocity_.x, cannon_ball_initial_velocity_.y, cannon_ball_initial_velocity_.z);
 }
