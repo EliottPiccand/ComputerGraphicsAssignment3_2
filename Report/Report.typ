@@ -27,6 +27,12 @@
   emph[#it.body :]
 }
 
+#show heading.where(level: 4): it => {
+  set text(weight: "regular")
+  box(width: 2em)[]
+  underline[#emph[\- #it.body :]]
+}
+
 #show ref: it => {
   if it.element != none and it.element.func() == math.equation {
     link(it.element.location())[(#counter(math.equation).at(it.element.location()).at(0))]
@@ -157,6 +163,7 @@ To summarize how our program works, we can use the following pseudo-code (see al
 
             Comment[render everything (this is a constant function, no update occurs here)]
             Call.with("Render-Scene")[]()
+            Call.with("Render-Water-And-UI")[]()
             Call.with("Render-Particles")[]()
 
             LineBreak
@@ -382,7 +389,8 @@ The goal is to sunk the enemies' ships (the ones with black sails).
 
 The player (ship with white sails) can change its ship speed with the `W` and `S` keys (respectively increasing and decreasing the ship speed), and rotate it using the `A` and `D` keys (turing the ship respectively left and right by 15°).
 The player can also switch between 2 views by clicking (press and release) `V`:
-- Top view: in this view, the player sees the entire world, and can use its mouse to fire cannon balls. Holding pressed the `Left Mouse Button` enable aiming mode. In aiming mode, the player can either fire and exit the aiming mode (by releasing the `Left Mouse Button`), or exit without firing by clicking (pressing then releasing) the `Right Mouse Button`.
+- Top view: in this view, the player sees the entire world, and can use its mouse to fire cannon balls. Holding pressed the `Left Mouse Button` enable aiming mode.
+In aiming mode, the player can either fire#footnote[When firing backward, the cannon ball might be deflected. This is because the cannon ball hit the ship's hitbox. Instead of exploding - which would have made the game much harder - we simply disabled self damages.] and exit the aiming mode (by releasing the `Left Mouse Button`), or exit without firing by clicking (pressing then releasing) the `Right Mouse Button`.
 - Cannon / Cannon ball view: in this view, the player can no longer fire, but can still move its ship.
 
 When a cannon ball hit a ship, it deals randomly between 3000 and 15000 damages.

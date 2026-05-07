@@ -19,7 +19,7 @@
 - ~~add rendering style: Wireframe rendering with hidden line removal~~ (no hidden line removal for anything that disable depth test such as particles and skybox)
 - ~~find something to make cannon balls visible from top view~~
 - ~~fix non textured model rendering~~
-- update Report images
+- ~~update Report images~~
 - update README
     - Controls
     - Compile info
