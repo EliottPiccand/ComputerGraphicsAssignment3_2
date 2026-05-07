@@ -23,8 +23,7 @@ To help with debugging, a few debug options are available :
 - releasing `P` toggle on/off the physics engine
 - releasing `F` when in another view than Top View fire a cannon ball from the player ship
 - the arrow keys `Up` `Left` `Down` `Right` move the player's cannon's target respectively North, West, South and East.
-- releasing `F3` toggle the display of a lot of debug information such as :
-    - perspective cameras: every perspective camera can be seen as a blue frustrum going from the camera eye to the near plan.
+
 ## Building the game
 This project use CMake for compiling, and Python for moving assets.
 If you don't have Python installed, you can remove everything inside `CMakeLists.txt` after the line `# --- Assets ---`, but you will have to manually copy the `Assets` folder next to the executable.
@@ -62,11 +61,11 @@ If you don't have Python installed, you can remove everything inside `CMakeLists
         - `path/to/repo/Lib`;
     + Add to `Configuration Properties > C/C++ > Preprocessor > Preprocessor Definitions` : `OE_RELEASE`
     + Change `Configuration Properties > C/C++ > Output Files > Object File Names` to `$(IntDir)%(RelativeDir)%(Filename).obj`;
-    + Add to `Configuration Properties > C/C++ > Command Line > Additional Options` : `-Xclang -std=c++23`;
+    + Add to `Configuration Properties > C/C++ > Command Line > Additional Options` : `-Xclang -std=c++23 -O3`;
     + Add to `Configuration Properties > Linker > General > Additional Library Directories` : `path/to/repo/Lib`;
     + Add to `Configuration Properties > Linker > Input > Additional Dependencies` : `glew32.lib; glfw3.lib; opengl32.lib; user32.lib; gdi32.lib; shell32.lib; glu32.lib`;
 + Switch the Solution Configuration to `Release`;
-+ Build without launching by pressing ``F7`;
++ Build without launching by pressing `F7`;
 + Locate the created `.exe` file, and copy the `Assets` folder next to it. It should looks like
     ```cmd
     SomeDir

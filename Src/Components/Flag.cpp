@@ -12,8 +12,6 @@ using namespace component;
 Flag::Flag(std::weak_ptr<resource::Texture> texture, std::optional<std::weak_ptr<resource::Texture>> emissive_texture)
     : animation_time_(0.0f)
 {
-    LOG_WARNING("flag: {}", emissive_texture.has_value());
-
     materials_override_ = {
         {
             0,
