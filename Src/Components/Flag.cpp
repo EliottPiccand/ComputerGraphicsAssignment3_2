@@ -3,7 +3,6 @@
 #include "Resources/ResourceLoader.h"
 #include "Resources/Shader.h"
 #include "Utils/Color.h"
-#include "Utils/Log.h"
 #include "Utils/Profiling.h"
 #include "Utils/Time.h"
 
